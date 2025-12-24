@@ -4,9 +4,9 @@
     <string name="notification_channel_name">Glavno obvestilo</string>
     <string name="loading">Nalaganje …</string>
     <string name="unzip_notification_description">Manj kot 1 minuta …</string>
-    <string name="label">Luanti</string>
-    <string name="notification_channel_description">Obvestilo od Luantia</string>
-    <string name="ime_dialog_done">Končano!l</string>
-    <string name="unzip_notification_title">Nalaganje Luantia</string>
-    <string name="game_notification_title">Luanti deluje</string>
+    <string name="label">Vococraft</string>
+    <string name="notification_channel_description">Obvestilo od Vococraft</string>
+    <string name="ime_dialog_done">Končano!</string>
+    <string name="unzip_notification_title">Nalaganje Vococraft</string>
+    <string name="game_notification_title">Vococraft deluje</string>
 </resources>

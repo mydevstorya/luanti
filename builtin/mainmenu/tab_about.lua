@@ -51,6 +51,10 @@ return {
 		local hypertext = {
 			"<tag name=heading color=#ff0>",
 			"<tag name=gray color=#aaa>",
+			"<heading>VocoCraft</heading>\n",
+			"VocoCraft is a voxel game inspired by the most popular voxel sandbox. This project is a fork of Launti (formerly Minetest), distributed together with a game mode forked from VoxeLibre. All these projects are licensed under the GPL, and our source code is also open: github.com/mydevstorya/\n\n",
+			"You can read more about the licenses in the respective repositories.\n\n",
+			"Below we list those who contributed to the creation of Launti, on which our VocoCraft is based.\n\n",
 		}
 
 		local credits = get_credits()
@@ -86,7 +90,7 @@ return {
 			"style[label_button;border=false]" ..
 			"button[0.1,3.4;5.3,0.5;label_button;" ..
 			core.formspec_escape(version.project .. " " .. version.string) .. "]" ..
-			"button_url[1.5,4.1;2.5,0.8;homepage;luanti.org;https://www.luanti.org/]" ..
+			--"button_url[1.5,4.1;2.5,0.8;homepage;luanti.org;https://www.luanti.org/]" ..
 			"hypertext[5.5,0.25;9.75,6.6;credits;" .. core.formspec_escape(hypertext) .. "]"
 
 		local active_renderer_info = fgettext("Active renderer:") .. "\n" ..

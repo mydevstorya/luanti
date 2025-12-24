@@ -58,6 +58,7 @@ AppDir
 ## Non-static Luanti directories or symlinks to these
 /bin/
 /games/*
+!games/vococraft
 !/games/devtest/
 /games/devtest/mods/soundstuff/sounds/gitignored_sounds/*
 !/games/devtest/mods/soundstuff/sounds/gitignored_sounds/custom_sounds_here.txt

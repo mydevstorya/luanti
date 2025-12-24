@@ -1,0 +1,3 @@
+[submodule "games/vococraft"]
+	path = games/vococraft
+	url = https://github.com/mydevstorya/VoxeLibre.git

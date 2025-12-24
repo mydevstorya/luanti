@@ -127,6 +127,15 @@ Compiling
 - [Compiling on Windows](doc/compiling/windows.md)
 - [Compiling on MacOS](doc/compiling/macos.md)
 
+
+-DENABLE_POSTGRESQL=OFF 
+
+cmake -S . -B build -G"Visual Studio 17 2022" -DCMAKE_TOOLCHAIN_FILE=J:/vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_CURSES=OFF -DENABLE_POSTGRESQL=OFF
+
+cmake --install . --config Release 
+cmake --install . --config Release --prefix ../dist-test
+
+
 Docker
 ------
 

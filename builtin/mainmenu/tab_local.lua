@@ -7,7 +7,7 @@ local current_game, singleplayer_refresh_gamebar
 local valid_disabled_settings = {
 	["enable_damage"]=true,
 	["creative_mode"]=true,
-	["enable_server"]=true,
+	["enable_server"]=false,
 }
 
 -- Name and port stored to persist when updating the formspec
@@ -63,6 +63,11 @@ function singleplayer_refresh_gamebar()
 	local old_bar = ui.find_by_name("game_button_bar")
 	if old_bar ~= nil then
 		old_bar:delete()
+	end
+
+	--Hide gamebar, only 1 game available
+	if true then
+		return false
 	end
 
 	-- Hide gamebar if no games are installed
@@ -198,21 +203,24 @@ local function get_formspec(tabview, name, tabdata)
 				dump(core.settings:get_bool("enable_damage")) .. "]"
 			y = y + yo
 		end
-		if disabled_settings["enable_server"] == nil then
-			host = "checkbox[0,"..y..";cb_server;".. fgettext("Host Server") ..";" ..
-				dump(core.settings:get_bool("enable_server")) .. "]"
-			y = y + yo
-		end
+		--
+		--if disabled_settings["enable_server"] == nil then
+		--	host = "checkbox[0,"..y..";cb_server;".. fgettext("Host Server") ..";" ..
+		--		dump(core.settings:get_bool("enable_server")) .. "]"
+		--	y = y + yo
+		--end
+	
 	end
 
 	retval = retval ..
 			"container[5.25,4.875]" ..
 			"button[6.65,0;3.225,0.8;world_create;".. fgettext("New") .. "]"
-	if world then
-		retval = retval ..
-				"button[0,0;3.225,0.8;world_delete;".. fgettext("Delete") .. "]" ..
-				"button[3.325,0;3.225,0.8;world_configure;".. fgettext("Select Mods") .. "]"
-	end
+	--if world then
+		--Disble mods
+		--retval = retval ..
+		--		"button[0,0;3.225,0.8;world_delete;".. fgettext("Delete") .. "]" ..
+		--		"button[3.325,0;3.225,0.8;world_configure;".. fgettext("Select Mods") .. "]"
+	--end
 	retval = retval ..
 			"container_end[]" ..
 			"container[0.375,0.375]" ..

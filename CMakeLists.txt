@@ -4,8 +4,8 @@ if(POLICY CMP0177)
 endif()
 
 # This can be read from ${PROJECT_NAME} after project() is called
-project(luanti)
-set(PROJECT_NAME_CAPITALIZED "Luanti")
+project(vococraft)
+set(PROJECT_NAME_CAPITALIZED "Vococraft")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
@@ -300,6 +300,10 @@ add_subdirectory(lib/tiniergltf)
 # Subdirectories
 # Be sure to add all relevant definitions above this
 add_subdirectory(src)
+
+# Always install all games from games/ to the install location
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/games/vococraft" DESTINATION "${SHAREDIR}/games/vococraft"
+    PATTERN ".git*" EXCLUDE )
 
 # CPack
 

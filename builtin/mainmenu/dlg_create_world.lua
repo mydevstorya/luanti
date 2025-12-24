@@ -447,15 +447,22 @@ local function create_world_buttonhandler(this, fields)
 end
 
 
+local function get_random_seed()
+	return tostring(math.random(1000000000, 2147483647))
+end
+
 function create_create_world_dlg()
 	local retval = dialog_create("sp_create_world",
 					create_world_formspec,
 					create_world_buttonhandler,
 					nil)
+
+	local seed = get_random_seed()				
 	retval.data = {
 		worldname = "",
 		-- settings the world is created with:
-		seed = core.settings:get("fixed_map_seed") or "",
+		--seed = core.settings:get("fixed_map_seed") or "",
+		seed = seed,
 		mg = core.settings:get("mg_name"),
 		flags = {
 			main = core.settings:get_flags("mg_flags"),
@@ -471,3 +478,4 @@ function create_create_world_dlg()
 
 	return retval
 end
+
