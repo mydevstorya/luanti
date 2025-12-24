@@ -20,13 +20,89 @@
 
 
 #if defined(__ANDROID__)
-// Android stub implementations: just do naive conversions (assume UTF-8 everywhere)
+// Android: proper UTF-8 <-> wstring conversion without iconv
+
+// Helper: decode one UTF-8 codepoint from input, advance pos
+static char32_t utf8_decode_codepoint(const char* data, size_t len, size_t &pos)
+{
+	if (pos >= len) return 0;
+	unsigned char c = data[pos];
+	char32_t codepoint = 0;
+	size_t extra = 0;
+
+	if ((c & 0x80) == 0) {
+		codepoint = c;
+		extra = 0;
+	} else if ((c & 0xE0) == 0xC0) {
+		codepoint = c & 0x1F;
+		extra = 1;
+	} else if ((c & 0xF0) == 0xE0) {
+		codepoint = c & 0x0F;
+		extra = 2;
+	} else if ((c & 0xF8) == 0xF0) {
+		codepoint = c & 0x07;
+		extra = 3;
+	} else {
+		// Invalid UTF-8 start byte
+		pos++;
+		return 0xFFFD;
+	}
+
+	pos++;
+	for (size_t i = 0; i < extra; ++i) {
+		if (pos >= len) return 0xFFFD;
+		unsigned char next = data[pos];
+		if ((next & 0xC0) != 0x80) return 0xFFFD;
+		codepoint = (codepoint << 6) | (next & 0x3F);
+		pos++;
+	}
+	return codepoint;
+}
+
+// Helper: encode one codepoint to UTF-8
+static void utf8_encode_codepoint(std::string &out, char32_t codepoint)
+{
+	if (codepoint <= 0x7F) {
+		out.push_back((char)codepoint);
+	} else if (codepoint <= 0x7FF) {
+		out.push_back((char)(0xC0 | (codepoint >> 6)));
+		out.push_back((char)(0x80 | (codepoint & 0x3F)));
+	} else if (codepoint <= 0xFFFF) {
+		out.push_back((char)(0xE0 | (codepoint >> 12)));
+		out.push_back((char)(0x80 | ((codepoint >> 6) & 0x3F)));
+		out.push_back((char)(0x80 | (codepoint & 0x3F)));
+	} else if (codepoint <= 0x10FFFF) {
+		out.push_back((char)(0xF0 | (codepoint >> 18)));
+		out.push_back((char)(0x80 | ((codepoint >> 12) & 0x3F)));
+		out.push_back((char)(0x80 | ((codepoint >> 6) & 0x3F)));
+		out.push_back((char)(0x80 | (codepoint & 0x3F)));
+	} else {
+		// Invalid codepoint, use replacement character
+		out.push_back((char)0xEF);
+		out.push_back((char)0xBF);
+		out.push_back((char)0xBD);
+	}
+}
+
 std::wstring utf8_to_wide(std::string_view input)
 {
 	std::wstring out;
 	out.reserve(input.size());
-	for (unsigned char c : input) {
-		out.push_back((wchar_t)c);
+	size_t pos = 0;
+	while (pos < input.size()) {
+		char32_t codepoint = utf8_decode_codepoint(input.data(), input.size(), pos);
+		// Handle surrogate pairs for 2-byte wchar_t
+		if constexpr (sizeof(wchar_t) == 2) {
+			if (codepoint > 0xFFFF && codepoint <= 0x10FFFF) {
+				codepoint -= 0x10000;
+				out.push_back((wchar_t)(0xD800 | (codepoint >> 10)));
+				out.push_back((wchar_t)(0xDC00 | (codepoint & 0x3FF)));
+			} else {
+				out.push_back((wchar_t)codepoint);
+			}
+		} else {
+			out.push_back((wchar_t)codepoint);
+		}
 	}
 	return out;
 }
@@ -34,9 +110,31 @@ std::wstring utf8_to_wide(std::string_view input)
 std::string wide_to_utf8(std::wstring_view input)
 {
 	std::string out;
-	out.reserve(input.size());
-	for (wchar_t wc : input) {
-		out.push_back((char)wc);
+	out.reserve(input.size() * 4);
+	size_t i = 0;
+	while (i < input.size()) {
+		char32_t codepoint;
+		wchar_t wc = input[i];
+		if constexpr (sizeof(wchar_t) == 2) {
+			// Handle surrogate pairs
+			if (wc >= 0xD800 && wc <= 0xDBFF && i + 1 < input.size()) {
+				wchar_t wc2 = input[i + 1];
+				if (wc2 >= 0xDC00 && wc2 <= 0xDFFF) {
+					codepoint = 0x10000 + (((wc - 0xD800) << 10) | (wc2 - 0xDC00));
+					i += 2;
+				} else {
+					codepoint = wc;
+					i++;
+				}
+			} else {
+				codepoint = wc;
+				i++;
+			}
+		} else {
+			codepoint = (char32_t)wc;
+			i++;
+		}
+		utf8_encode_codepoint(out, codepoint);
 	}
 	return out;
 }
@@ -72,25 +170,6 @@ std::string wide_to_utf8(std::wstring_view input)
 #include <iconv.h>
 
 namespace {
-	{
-	    std::wstring out;
-	    out.reserve(input.size());
-	    for (unsigned char c : input) {
-	        out.push_back((wchar_t)c);
-	    }
-	    return out;
-	}
-
-	std::string wide_to_utf8(std::wstring_view input)
-	{
-	    std::string out;
-	    out.reserve(input.size());
-	    for (wchar_t wc : input) {
-	        out.push_back((char)wc);
-	    }
-	    return out;
-	}
-
 	class IconvSmartPointer {
 		iconv_t m_cd;
 		static const iconv_t null_value;
@@ -176,6 +255,32 @@ std::wstring utf8_to_wide(std::string_view input)
 	return out;
 }
 
+std::string wide_to_utf8(std::wstring_view input)
+{
+	thread_local IconvSmartPointer cd;
+	if (!cd)
+		cd.reset(iconv_open("UTF-8", DEFAULT_ENCODING));
+
+	const size_t inbuf_size = input.length() * sizeof(wchar_t);
+	// maximum possible size: utf-8 encodes codepoints using 1 up to 4 bytes
+	size_t outbuf_size = input.length() * 4;
+
+	char *inbuf = new char[inbuf_size]; // intentionally NOT null-terminated
+	memcpy(inbuf, input.data(), inbuf_size);
+	std::string out;
+	out.resize(outbuf_size);
+
+	if (!convert(cd.get(), &out[0], &outbuf_size, inbuf, inbuf_size)) {
+		infostream << "Couldn't convert wstring 0x" << hex_encode(inbuf, inbuf_size)
+			<< " into UTF-8 string" << std::endl;
+		delete[] inbuf;
+		return "<invalid wide string>";
+	}
+	delete[] inbuf;
+
+	out.resize(outbuf_size);
+	return out;
+}
 
 #endif // platform selection
 
