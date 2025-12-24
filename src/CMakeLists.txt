@@ -335,10 +335,12 @@ else()
 		endif(HAVE_LIBRT)
 	endif(APPLE)
 
-	find_library(ICONV_LIBRARY iconv)
-	mark_as_advanced(ICONV_LIBRARY)
-	if (ICONV_LIBRARY)
-		list(APPEND PLATFORM_LIBS ${ICONV_LIBRARY})
+	if(NOT __ANDROID__)
+		find_library(ICONV_LIBRARY iconv)
+		mark_as_advanced(ICONV_LIBRARY)
+		if (ICONV_LIBRARY)
+			list(APPEND PLATFORM_LIBS ${ICONV_LIBRARY})
+		endif()
 	endif()
 
 	if (HAIKU)
@@ -925,7 +927,7 @@ if(MSVC)
 	# Flags that cannot be shared between cl and clang-cl
 	# https://clang.llvm.org/docs/UsersManual.html#clang-cl
 	if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-		add_compile_options(-fuse-ld=lld)
+		add_link_options(-fuse-ld=lld)
 
 		# Disable pragma-pack warning
 		set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Wno-pragma-pack")

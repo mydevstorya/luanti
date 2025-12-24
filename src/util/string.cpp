@@ -18,15 +18,79 @@
 #include <iomanip>
 #include <unordered_map>
 
-#ifndef _WIN32
-	#include <iconv.h>
-#else
-	#include <windows.h>
-#endif
 
-#ifndef _WIN32
+#if defined(__ANDROID__)
+// Android stub implementations: just do naive conversions (assume UTF-8 everywhere)
+std::wstring utf8_to_wide(std::string_view input)
+{
+	std::wstring out;
+	out.reserve(input.size());
+	for (unsigned char c : input) {
+		out.push_back((wchar_t)c);
+	}
+	return out;
+}
+
+std::string wide_to_utf8(std::wstring_view input)
+{
+	std::string out;
+	out.reserve(input.size());
+	for (wchar_t wc : input) {
+		out.push_back((char)wc);
+	}
+	return out;
+}
+
+#elif defined(_WIN32)
+#include <windows.h>
+
+std::wstring utf8_to_wide(std::string_view input)
+{
+	size_t outbuf_size = input.size() + 1;
+	wchar_t *outbuf = new wchar_t[outbuf_size];
+	memset(outbuf, 0, outbuf_size * sizeof(wchar_t));
+	MultiByteToWideChar(CP_UTF8, 0, input.data(), input.size(),
+		outbuf, outbuf_size);
+	std::wstring out(outbuf);
+	delete[] outbuf;
+	return out;
+}
+
+std::string wide_to_utf8(std::wstring_view input)
+{
+	size_t outbuf_size = (input.size() + 1) * 6;
+	char *outbuf = new char[outbuf_size];
+	memset(outbuf, 0, outbuf_size);
+	WideCharToMultiByte(CP_UTF8, 0, input.data(), input.size(),
+		outbuf, outbuf_size, NULL, NULL);
+	std::string out(outbuf);
+	delete[] outbuf;
+	return out;
+}
+
+#else
+#include <iconv.h>
 
 namespace {
+	{
+	    std::wstring out;
+	    out.reserve(input.size());
+	    for (unsigned char c : input) {
+	        out.push_back((wchar_t)c);
+	    }
+	    return out;
+	}
+
+	std::string wide_to_utf8(std::wstring_view input)
+	{
+	    std::string out;
+	    out.reserve(input.size());
+	    for (wchar_t wc : input) {
+	        out.push_back((char)wc);
+	    }
+	    return out;
+	}
+
 	class IconvSmartPointer {
 		iconv_t m_cd;
 		static const iconv_t null_value;
@@ -112,60 +176,8 @@ std::wstring utf8_to_wide(std::string_view input)
 	return out;
 }
 
-std::string wide_to_utf8(std::wstring_view input)
-{
-	thread_local IconvSmartPointer cd;
-	if (!cd)
-		cd.reset(iconv_open("UTF-8", DEFAULT_ENCODING));
 
-	const size_t inbuf_size = input.length() * sizeof(wchar_t);
-	// maximum possible size: utf-8 encodes codepoints using 1 up to 4 bytes
-	size_t outbuf_size = input.length() * 4;
-
-	char *inbuf = new char[inbuf_size]; // intentionally NOT null-terminated
-	memcpy(inbuf, input.data(), inbuf_size);
-	std::string out;
-	out.resize(outbuf_size);
-
-	if (!convert(cd.get(), &out[0], &outbuf_size, inbuf, inbuf_size)) {
-		infostream << "Couldn't convert wstring 0x" << hex_encode(inbuf, inbuf_size)
-			<< " into UTF-8 string" << std::endl;
-		delete[] inbuf;
-		return "<invalid wide string>";
-	}
-	delete[] inbuf;
-
-	out.resize(outbuf_size);
-	return out;
-}
-
-#else // _WIN32
-
-std::wstring utf8_to_wide(std::string_view input)
-{
-	size_t outbuf_size = input.size() + 1;
-	wchar_t *outbuf = new wchar_t[outbuf_size];
-	memset(outbuf, 0, outbuf_size * sizeof(wchar_t));
-	MultiByteToWideChar(CP_UTF8, 0, input.data(), input.size(),
-		outbuf, outbuf_size);
-	std::wstring out(outbuf);
-	delete[] outbuf;
-	return out;
-}
-
-std::string wide_to_utf8(std::wstring_view input)
-{
-	size_t outbuf_size = (input.size() + 1) * 6;
-	char *outbuf = new char[outbuf_size];
-	memset(outbuf, 0, outbuf_size);
-	WideCharToMultiByte(CP_UTF8, 0, input.data(), input.size(),
-		outbuf, outbuf_size, NULL, NULL);
-	std::string out(outbuf);
-	delete[] outbuf;
-	return out;
-}
-
-#endif // _WIN32
+#endif // platform selection
 
 void wide_add_codepoint(std::wstring &result, char32_t codepoint)
 {

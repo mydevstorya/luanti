@@ -130,6 +130,7 @@ Compiling
 
 -DENABLE_POSTGRESQL=OFF 
 
+open ./Build
 cmake -S . -B build -G"Visual Studio 17 2022" -DCMAKE_TOOLCHAIN_FILE=J:/vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_CURSES=OFF -DENABLE_POSTGRESQL=OFF
 
 cmake --install . --config Release 
