@@ -56,8 +56,8 @@ You're probably hitting two problems:
 
 Force regenerating the assets: `./gradlew app:clean`
 
-Erase the app's memory of which version was installed: `adb shell run-as net.minetest.minetest rm shared_prefs/MinetestSettings.xml`
+Erase the app's memory of which version was installed: `adb shell run-as com.VocoCraft.VocoCraft rm shared_prefs/MinetestSettings.xml`
 
-If this doesn't work you can also uninstall it using `adb shell pm uninstall net.minetest.minetest`. You will obviously lose your data.
+If this doesn't work you can also uninstall it using `adb shell pm uninstall com.VocoCraft.VocoCraft`. You will obviously lose your data.
 
 Then build and install as normal and your changes should be applied.

@@ -3,7 +3,7 @@ apply plugin: 'com.android.application'
 android {
 	ndkVersion "$ndk_version"
 	defaultConfig {
-		applicationId 'net.minetest.minetest'
+		applicationId 'com.VocoCraft.VocoCraft'
 		minSdkVersion 21
 		compileSdk 34
 		targetSdkVersion 35
@@ -52,7 +52,7 @@ android {
 		sourceCompatibility JavaVersion.VERSION_1_8
 		targetCompatibility JavaVersion.VERSION_1_8
 	}
-	namespace 'net.minetest.minetest'
+	namespace 'com.VocoCraft.VocoCraft'
 }
 
 task prepareAssets() {

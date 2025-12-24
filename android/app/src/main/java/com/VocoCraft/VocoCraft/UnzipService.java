@@ -18,7 +18,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-package net.minetest.minetest;
+package com.VocoCraft.VocoCraft;
 
 import android.app.IntentService;
 import android.app.Notification;
@@ -44,10 +44,10 @@ import java.util.zip.ZipFile;
 import java.util.zip.ZipInputStream;
 
 public class UnzipService extends IntentService {
-	public static final String ACTION_UPDATE = "net.minetest.minetest.UPDATE";
-	public static final String ACTION_PROGRESS = "net.minetest.minetest.PROGRESS";
-	public static final String ACTION_PROGRESS_MESSAGE = "net.minetest.minetest.PROGRESS_MESSAGE";
-	public static final String ACTION_FAILURE = "net.minetest.minetest.FAILURE";
+	public static final String ACTION_UPDATE = "com.VocoCraft.VocoCraft.UPDATE";
+	public static final String ACTION_PROGRESS = "com.VocoCraft.VocoCraft.PROGRESS";
+	public static final String ACTION_PROGRESS_MESSAGE = "com.VocoCraft.VocoCraft.PROGRESS_MESSAGE";
+	public static final String ACTION_FAILURE = "com.VocoCraft.VocoCraft.FAILURE";
 	public static final int SUCCESS = -1;
 	public static final int FAILURE = -2;
 	public static final int INDETERMINATE = -3;
@@ -66,7 +66,7 @@ public class UnzipService extends IntentService {
 	}
 
 	public UnzipService() {
-		super("net.minetest.minetest.UnzipService");
+		super("com.VocoCraft.VocoCraft.UnzipService");
 	}
 
 	@Override

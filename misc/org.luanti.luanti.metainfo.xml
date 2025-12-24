@@ -2,10 +2,10 @@
 <component type="desktop-application">
     <id>org.luanti.luanti</id>
     <provides>
-        <id>net.minetest.minetest</id>
+        <id>com.VocoCraft.VocoCraft</id>
     </provides>
     <replaces>
-        <id>net.minetest.minetest</id>
+        <id>com.VocoCraft.VocoCraft</id>
     </replaces>
 
     <name>Luanti</name>

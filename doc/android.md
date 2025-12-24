@@ -40,8 +40,8 @@ configuration file can usually be found at:
     * `/sdcard/Minetest/` or `/storage/emulated/0/` if stored on the device
     * `/storage/emulated/(varying folder name)/` if stored on an SD card
 * After 5.4.2:
-    * `/sdcard/Android/data/net.minetest.minetest/` or `/storage/emulated/0/Android/data/net.minetest.minetest/` if stored on the device
-    * `/storage/emulated/(varying folder name)/Android/data/net.minetest.minetest/` if stored on the SD card
+    * `/sdcard/Android/data/com.VocoCraft.VocoCraft/` or `/storage/emulated/0/Android/data/com.VocoCraft.VocoCraft/` if stored on the device
+    * `/storage/emulated/(varying folder name)/Android/data/com.VocoCraft.VocoCraft/` if stored on the SD card
 * [Learn more about Android directory](https://docs.luanti.org/for-players/mobile/)
 
 ## Useful settings

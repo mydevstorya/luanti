@@ -1,4 +1,4 @@
-package net.minetest.minetest;
+package com.VocoCraft.VocoCraft;
 
 import android.content.Context;
 import android.util.Log;
