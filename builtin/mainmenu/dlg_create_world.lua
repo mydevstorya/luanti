@@ -388,6 +388,15 @@ local function create_world_buttonhandler(this, fields)
 		end
 
 		if message == nil then
+			-- Send analytics event for world creation (Android only)
+			if core.send_world_created_event then
+				core.log("info", "[Analytics] Sending world_created event: " .. worldname .. ", " .. game.id .. ", " .. (this.data.mg or "v7"))
+				local result = core.send_world_created_event(worldname, game.id, this.data.mg or "v7")
+				core.log("info", "[Analytics] send_world_created_event returned: " .. tostring(result))
+			else
+				core.log("warning", "[Analytics] core.send_world_created_event not available")
+			end
+
 			core.settings:set("menu_last_game", game.id)
 			menudata.worldlist:set_filtercriteria(game.id)
 			menudata.worldlist:refresh()

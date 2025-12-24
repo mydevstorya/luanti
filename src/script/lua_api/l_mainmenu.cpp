@@ -32,6 +32,10 @@
 #include "log.h"
 #include "util/string.h"
 
+#ifdef __ANDROID__
+#include "porting_android.h"
+#endif
+
 #include <cassert>
 #include <iostream>
 
@@ -1017,6 +1021,53 @@ int ModApiMainMenu::l_share_file(lua_State *L)
 }
 
 /******************************************************************************/
+int ModApiMainMenu::l_send_analytics_event(lua_State *L)
+{
+	const char *eventName = luaL_checkstring(L, 1);
+	const char *jsonParams = nullptr;
+	
+	if (lua_isstring(L, 2)) {
+		jsonParams = lua_tostring(L, 2);
+	}
+
+#ifdef __ANDROID__
+	if (jsonParams != nullptr && strlen(jsonParams) > 0) {
+		porting::sendAnalyticsEventWithParams(eventName, jsonParams);
+	} else {
+		porting::sendAnalyticsEvent(eventName);
+	}
+	lua_pushboolean(L, true);
+#else
+	// Analytics only available on Android
+	lua_pushboolean(L, false);
+#endif
+	return 1;
+}
+
+/******************************************************************************/
+int ModApiMainMenu::l_send_world_created_event(lua_State *L)
+{
+	const char *worldName = luaL_checkstring(L, 1);
+	const char *gameId = luaL_checkstring(L, 2);
+	const char *mapgen = luaL_checkstring(L, 3);
+
+	infostream << "[Analytics] l_send_world_created_event called: "
+		<< worldName << ", " << gameId << ", " << mapgen << std::endl;
+
+#ifdef __ANDROID__
+	infostream << "[Analytics] Calling porting::sendWorldCreatedEvent" << std::endl;
+	porting::sendWorldCreatedEvent(worldName, gameId, mapgen);
+	infostream << "[Analytics] porting::sendWorldCreatedEvent completed" << std::endl;
+	lua_pushboolean(L, true);
+#else
+	// Analytics only available on Android
+	infostream << "[Analytics] Not Android, skipping" << std::endl;
+	lua_pushboolean(L, false);
+#endif
+	return 1;
+}
+
+/******************************************************************************/
 int ModApiMainMenu::l_do_async_callback(lua_State *L)
 {
 	MainMenuScripting *script = getScriptApi<MainMenuScripting>(L);
@@ -1089,6 +1140,8 @@ void ModApiMainMenu::Initialize(lua_State *L, int top)
 	API_FCT(open_dir);
 	API_FCT(share_file);
 	API_FCT(do_async_callback);
+	API_FCT(send_analytics_event);
+	API_FCT(send_world_created_event);
 
 	lua_pushboolean(L, g_first_run);
 	lua_setfield(L, top, "is_first_run");

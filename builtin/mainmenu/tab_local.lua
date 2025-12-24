@@ -402,6 +402,23 @@ local function main_button_handler(this, fields, name, tabdata)
 			gamedata.singleplayer = true
 		end
 
+		-- Send analytics event for game start (Android only)
+		if core.send_analytics_event and world then
+			local creative = core.settings:get_bool("creative_mode") and "true" or "false"
+			local damage = core.settings:get_bool("enable_damage") and "true" or "false"
+			local is_server = core.settings:get_bool("enable_server") and "true" or "false"
+			local params = string.format(
+				'{"world_name":"%s","game_id":"%s","creative_mode":%s,"enable_damage":%s,"is_server":%s}',
+				world.name or "unknown",
+				world.gameid or "unknown",
+				creative,
+				damage,
+				is_server
+			)
+			core.log("info", "[Analytics] Sending game_started event: " .. params)
+			core.send_analytics_event("game_started", params)
+		end
+
 		core.start()
 		return true
 	end

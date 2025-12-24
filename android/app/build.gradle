@@ -92,6 +92,15 @@ task prepareAssets() {
 			from "${projRoot}/games"
 			into "${assetsFolder}/games"
 		}
+		
+		// copy secrets.properties if exists (not in git, contains API keys)
+		def secretsFile = file("src/main/assets/secrets.properties")
+		if (secretsFile.exists()) {
+			copy {
+				from secretsFile
+				into assetsFolder
+			}
+		}
 
 		// compile translations
 		fileTree("${projRoot}/po").include("**/*.po").grep {
@@ -124,4 +133,6 @@ clean {
 dependencies {
 	implementation project(':native')
 	implementation 'androidx.appcompat:appcompat:1.6.1'
+	// AppMetrica SDK
+	implementation 'io.appmetrica.analytics:analytics:7.14.0'
 }

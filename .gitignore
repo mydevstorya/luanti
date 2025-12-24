@@ -140,3 +140,6 @@ lib/irrlichtmt
 # Generated mod storage database
 client/mod_storage.sqlite
 vcpkg_installed
+
+# Secrets (API keys, etc.)
+android/app/src/main/assets/secrets.properties

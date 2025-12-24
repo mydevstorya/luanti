@@ -321,4 +321,90 @@ bool hasPhysicalKeyboardAndroid()
 	return result;
 }
 
+// Analytics functions (AppMetrica)
+
+void sendAnalyticsEvent(const std::string &eventName)
+{
+	jclass analyticsClass = jnienv->FindClass("com/VocoCraft/VocoCraft/Analytics");
+	if (analyticsClass == nullptr) {
+		errorstream << "Analytics class not found" << std::endl;
+		jnienv->ExceptionClear();
+		return;
+	}
+
+	jmethodID sendEvent = jnienv->GetStaticMethodID(analyticsClass,
+			"sendEvent", "(Ljava/lang/String;)V");
+
+	if (sendEvent == nullptr) {
+		errorstream << "Analytics.sendEvent method not found" << std::endl;
+		jnienv->ExceptionClear();
+		return;
+	}
+
+	jstring jEventName = jnienv->NewStringUTF(eventName.c_str());
+	jnienv->CallStaticVoidMethod(analyticsClass, sendEvent, jEventName);
+	jnienv->DeleteLocalRef(jEventName);
+	jnienv->DeleteLocalRef(analyticsClass);
+}
+
+void sendAnalyticsEventWithParams(const std::string &eventName, const std::string &jsonParams)
+{
+	jclass analyticsClass = jnienv->FindClass("com/VocoCraft/VocoCraft/Analytics");
+	if (analyticsClass == nullptr) {
+		errorstream << "Analytics class not found" << std::endl;
+		jnienv->ExceptionClear();
+		return;
+	}
+
+	jmethodID sendEventWithParams = jnienv->GetStaticMethodID(analyticsClass,
+			"sendEventWithParams", "(Ljava/lang/String;Ljava/lang/String;)V");
+
+	if (sendEventWithParams == nullptr) {
+		errorstream << "Analytics.sendEventWithParams method not found" << std::endl;
+		jnienv->ExceptionClear();
+		return;
+	}
+
+	jstring jEventName = jnienv->NewStringUTF(eventName.c_str());
+	jstring jJsonParams = jnienv->NewStringUTF(jsonParams.c_str());
+	jnienv->CallStaticVoidMethod(analyticsClass, sendEventWithParams, jEventName, jJsonParams);
+	jnienv->DeleteLocalRef(jEventName);
+	jnienv->DeleteLocalRef(jJsonParams);
+	jnienv->DeleteLocalRef(analyticsClass);
+}
+
+void sendWorldCreatedEvent(const std::string &worldName, const std::string &gameId, const std::string &mapgen)
+{
+	infostream << "[Analytics JNI] sendWorldCreatedEvent: " << worldName << ", " << gameId << ", " << mapgen << std::endl;
+	
+	jclass analyticsClass = jnienv->FindClass("com/VocoCraft/VocoCraft/Analytics");
+	if (analyticsClass == nullptr) {
+		errorstream << "[Analytics JNI] Analytics class not found" << std::endl;
+		jnienv->ExceptionClear();
+		return;
+	}
+	infostream << "[Analytics JNI] Found Analytics class" << std::endl;
+
+	jmethodID sendWorldCreated = jnienv->GetStaticMethodID(analyticsClass,
+			"sendWorldCreatedEvent", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V");
+
+	if (sendWorldCreated == nullptr) {
+		errorstream << "[Analytics JNI] Analytics.sendWorldCreatedEvent method not found" << std::endl;
+		jnienv->ExceptionClear();
+		return;
+	}
+	infostream << "[Analytics JNI] Found sendWorldCreatedEvent method" << std::endl;
+
+	jstring jWorldName = jnienv->NewStringUTF(worldName.c_str());
+	jstring jGameId = jnienv->NewStringUTF(gameId.c_str());
+	jstring jMapgen = jnienv->NewStringUTF(mapgen.c_str());
+	infostream << "[Analytics JNI] Calling Java method..." << std::endl;
+	jnienv->CallStaticVoidMethod(analyticsClass, sendWorldCreated, jWorldName, jGameId, jMapgen);
+	infostream << "[Analytics JNI] Java method called successfully" << std::endl;
+	jnienv->DeleteLocalRef(jWorldName);
+	jnienv->DeleteLocalRef(jGameId);
+	jnienv->DeleteLocalRef(jMapgen);
+	jnienv->DeleteLocalRef(analyticsClass);
+}
+
 }

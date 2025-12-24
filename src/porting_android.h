@@ -92,4 +92,25 @@ bool hasPhysicalKeyboardAndroid();
 float getDisplayDensity();
 v2u32 getDisplaySize();
 
+/**
+ * Send an analytics event (AppMetrica)
+ * @param eventName Name of the event
+ */
+void sendAnalyticsEvent(const std::string &eventName);
+
+/**
+ * Send an analytics event with parameters (AppMetrica)
+ * @param eventName Name of the event
+ * @param jsonParams JSON string with parameters
+ */
+void sendAnalyticsEventWithParams(const std::string &eventName, const std::string &jsonParams);
+
+/**
+ * Send world created analytics event
+ * @param worldName Name of the world
+ * @param gameId ID of the game
+ * @param mapgen Mapgen type
+ */
+void sendWorldCreatedEvent(const std::string &worldName, const std::string &gameId, const std::string &mapgen);
+
 }
