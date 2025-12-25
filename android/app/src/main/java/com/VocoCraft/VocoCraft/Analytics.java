@@ -186,4 +186,49 @@ public class Analytics {
         AppMetrica.reportEvent("world_created", params);
         Log.i(TAG, "world_created event sent successfully!");
     }
+    
+    /**
+     * Send ad-related event for tracking ad performance.
+     * Events are sent as "ad_banner" or "ad_interstitial" with structured parameters.
+     * 
+     * @param context Context for checking initialization
+     * @param adType Type of ad: "banner" or "interstitial"
+     * @param action Action: "request", "loaded", "failed", "shown", "clicked", "impression", "dismissed", etc.
+     * @param details Additional details (ad unit ID, error message, etc.)
+     */
+    @Keep
+    public static void sendAdEvent(Context context, String adType, String action, String details) {
+        if (!initialized || context == null) {
+            return;
+        }
+        
+        // Additional safety check for context validity
+        if (context instanceof android.app.Activity) {
+            android.app.Activity activity = (android.app.Activity) context;
+            if (activity.isFinishing() || activity.isDestroyed()) {
+                return;
+            }
+        }
+        
+        Map<String, Object> params = new HashMap<>();
+        params.put("action", action);
+        params.put("ad_unit_id", details != null && details.contains("|") ? details.split("\\|")[0] : details);
+        params.put("timestamp", System.currentTimeMillis());
+        
+        // Parse additional details if present (format: "ad_unit_id|error_code|description")
+        if (details != null && details.contains("|")) {
+            String[] parts = details.split("\\|");
+            if (parts.length >= 2) {
+                params.put("error_code", parts[1]);
+            }
+            if (parts.length >= 3) {
+                params.put("error_message", parts[2]);
+            }
+        }
+        
+        // Send as "ad_banner" or "ad_interstitial" event
+        String eventName = "ad_" + adType;
+        AppMetrica.reportEvent(eventName, params);
+        Log.d(TAG, "Ad event: " + eventName + ", action=" + action);
+    }
 }

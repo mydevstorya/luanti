@@ -42,6 +42,8 @@ import java.util.Properties;
  */
 public class YandexAds {
     private static final String TAG = "YandexAds";
+    private static final int BANNER_RETRY_DELAY_MS = 15000; // 15 seconds
+    private static final int MAX_BANNER_RETRIES = 10000;
     
     private static boolean initialized = false;
     private static String bannerAdUnitId = "demo-banner-yandex";
@@ -51,7 +53,16 @@ public class YandexAds {
     private static BannerAdView bannerAdView = null;
     private static FrameLayout bannerContainer = null;
     private static boolean bannerVisible = false;
+    private static boolean bannerRequested = false; // User wants banner shown
     private static int bannerHeight = 0;
+    private static int bannerRetryCount = 0;
+    private static android.os.Handler retryHandler = null;
+    private static Runnable retryRunnable = null;
+    
+    // Store references for retry
+    private static Activity currentActivity = null;
+    private static ViewGroup currentGameLayout = null;
+    private static View currentGameView = null;
     
     // Interstitial
     private static InterstitialAdLoader interstitialAdLoader = null;
@@ -134,22 +145,35 @@ public class YandexAds {
      * Initialize interstitial ad loader
      */
     private static void initInterstitialLoader(Activity activity) {
-        interstitialAdLoader = new InterstitialAdLoader(activity);
-        interstitialAdLoader.setAdLoadListener(new InterstitialAdLoadListener() {
-            @Override
-            public void onAdLoaded(InterstitialAd ad) {
-                Log.i(TAG, "Interstitial ad loaded successfully");
-                interstitialAd = ad;
-                isInterstitialLoading = false;
-            }
-            
-            @Override
-            public void onAdFailedToLoad(AdRequestError error) {
-                Log.e(TAG, "Interstitial ad failed to load: " + error.getDescription());
-                interstitialAd = null;
-                isInterstitialLoading = false;
-            }
-        });
+        try {
+            interstitialAdLoader = new InterstitialAdLoader(activity);
+            interstitialAdLoader.setAdLoadListener(new InterstitialAdLoadListener() {
+                @Override
+                public void onAdLoaded(InterstitialAd ad) {
+                    try {
+                        Log.i(TAG, "Interstitial ad loaded successfully");
+                        interstitialAd = ad;
+                        isInterstitialLoading = false;
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error in onAdLoaded: " + e.getMessage());
+                    }
+                }
+                
+                @Override
+                public void onAdFailedToLoad(AdRequestError error) {
+                    try {
+                        Log.e(TAG, "Interstitial ad failed to load: " + error.getDescription());
+                        interstitialAd = null;
+                        isInterstitialLoading = false;
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error in onAdFailedToLoad: " + e.getMessage());
+                    }
+                }
+            });
+        } catch (Exception e) {
+            Log.e(TAG, "Error initializing interstitial loader: " + e.getMessage());
+            interstitialAdLoader = null;
+        }
     }
     
     /**
@@ -160,11 +184,16 @@ public class YandexAds {
             return;
         }
         
-        Log.d(TAG, "Loading interstitial ad...");
-        isInterstitialLoading = true;
-        
-        AdRequestConfiguration config = new AdRequestConfiguration.Builder(interstitialAdUnitId).build();
-        interstitialAdLoader.loadAd(config);
+        try {
+            Log.d(TAG, "Loading interstitial ad...");
+            isInterstitialLoading = true;
+            
+            AdRequestConfiguration config = new AdRequestConfiguration.Builder(interstitialAdUnitId).build();
+            interstitialAdLoader.loadAd(config);
+        } catch (Exception e) {
+            Log.e(TAG, "Error loading interstitial: " + e.getMessage());
+            isInterstitialLoading = false;
+        }
     }
     
     /**
@@ -188,9 +217,11 @@ public class YandexAds {
         }
         
         Log.d(TAG, "tryShowInterstitial called, ad ready: " + isInterstitialReady());
+        Analytics.sendAdEvent(activity, "interstitial", "request", interstitialAdUnitId);
         
         if (interstitialAd == null) {
             Log.w(TAG, "Interstitial not ready, attempting to load");
+            Analytics.sendAdEvent(activity, "interstitial", "not_ready", interstitialAdUnitId);
             loadInterstitial();
             if (callback != null) {
                 callback.onInterstitialFailed();
@@ -203,39 +234,67 @@ public class YandexAds {
         interstitialAd.setAdEventListener(new InterstitialAdEventListener() {
             @Override
             public void onAdShown() {
-                Log.d(TAG, "Interstitial ad shown");
+                try {
+                    Log.d(TAG, "Interstitial ad shown");
+                    Analytics.sendAdEvent(activity, "interstitial", "shown", interstitialAdUnitId);
+                } catch (Exception e) {
+                    Log.e(TAG, "Error in onAdShown: " + e.getMessage());
+                }
             }
             
             @Override
             public void onAdFailedToShow(AdError error) {
-                Log.e(TAG, "Interstitial failed to show: " + error.getDescription());
-                cleanupInterstitial();
-                loadInterstitial();
-                if (interstitialCallback != null) {
-                    interstitialCallback.onInterstitialFailed();
+                try {
+                    Log.e(TAG, "Interstitial failed to show: " + error.getDescription());
+                    Analytics.sendAdEvent(activity, "interstitial", "failed_to_show", 
+                        interstitialAdUnitId + "|" + error.getDescription());
+                    cleanupInterstitial();
+                    loadInterstitial();
+                    InterstitialCallback cb = interstitialCallback;
                     interstitialCallback = null;
+                    if (cb != null) {
+                        cb.onInterstitialFailed();
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error in onAdFailedToShow: " + e.getMessage());
                 }
             }
             
             @Override
             public void onAdDismissed() {
-                Log.d(TAG, "Interstitial ad dismissed");
-                cleanupInterstitial();
-                loadInterstitial();
-                if (interstitialCallback != null) {
-                    interstitialCallback.onInterstitialDismissed();
+                try {
+                    Log.d(TAG, "Interstitial ad dismissed");
+                    Analytics.sendAdEvent(activity, "interstitial", "dismissed", interstitialAdUnitId);
+                    cleanupInterstitial();
+                    loadInterstitial();
+                    InterstitialCallback cb = interstitialCallback;
                     interstitialCallback = null;
+                    if (cb != null) {
+                        cb.onInterstitialDismissed();
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error in onAdDismissed: " + e.getMessage());
                 }
             }
             
             @Override
             public void onAdClicked() {
-                Log.d(TAG, "Interstitial ad clicked");
+                try {
+                    Log.d(TAG, "Interstitial ad clicked");
+                    Analytics.sendAdEvent(activity, "interstitial", "clicked", interstitialAdUnitId);
+                } catch (Exception e) {
+                    Log.e(TAG, "Error in onAdClicked: " + e.getMessage());
+                }
             }
             
             @Override
             public void onAdImpression(ImpressionData impressionData) {
-                Log.d(TAG, "Interstitial ad impression recorded");
+                try {
+                    Log.d(TAG, "Interstitial ad impression recorded");
+                    Analytics.sendAdEvent(activity, "interstitial", "impression", interstitialAdUnitId);
+                } catch (Exception e) {
+                    Log.e(TAG, "Error in onAdImpression: " + e.getMessage());
+                }
             }
         });
         
@@ -248,7 +307,11 @@ public class YandexAds {
      */
     private static void cleanupInterstitial() {
         if (interstitialAd != null) {
-            interstitialAd.setAdEventListener(null);
+            try {
+                interstitialAd.setAdEventListener(null);
+            } catch (Exception e) {
+                Log.e(TAG, "Error clearing interstitial listener: " + e.getMessage());
+            }
             interstitialAd = null;
         }
     }
@@ -262,6 +325,13 @@ public class YandexAds {
             Log.w(TAG, "showBanner: activity is null or finishing");
             return;
         }
+        
+        // Mark that we want banner shown (for retry logic)
+        bannerRequested = true;
+        bannerRetryCount = 0;
+        currentActivity = activity;
+        currentGameLayout = gameLayout;
+        currentGameView = gameView;
         
         if (bannerVisible) {
             Log.d(TAG, "Banner already visible");
@@ -283,6 +353,9 @@ public class YandexAds {
             
             Log.d(TAG, "Banner size: " + adWidth + "x" + bannerHeight);
             
+            // Send analytics: banner request
+            Analytics.sendAdEvent(activity, "banner", "request", bannerAdUnitId);
+            
             // Create banner container at bottom
             if (bannerContainer == null) {
                 bannerContainer = new FrameLayout(activity);
@@ -299,17 +372,31 @@ public class YandexAds {
                 public void onAdLoaded() {
                     Log.i(TAG, "Banner ad loaded");
                     bannerVisible = true;
+                    bannerRetryCount = 0; // Reset retry count on success
+                    Analytics.sendAdEvent(activity, "banner", "loaded", bannerAdUnitId);
                 }
                 
                 @Override
                 public void onAdFailedToLoad(AdRequestError error) {
                     Log.e(TAG, "Banner ad failed to load: " + error.getDescription());
-                    hideBannerInternal(activity, gameLayout, gameView);
+                    Analytics.sendAdEvent(activity, "banner", "failed", 
+                        bannerAdUnitId + "|" + error.getCode() + "|" + error.getDescription());
+                    
+                    // Clean up failed banner
+                    cleanupBannerView(activity, gameLayout, gameView);
+                    
+                    // Schedule retry if user still wants banner and we haven't exceeded max retries
+                    if (bannerRequested && bannerRetryCount < MAX_BANNER_RETRIES) {
+                        bannerRetryCount++;
+                        Log.d(TAG, "Scheduling banner retry " + bannerRetryCount + "/" + MAX_BANNER_RETRIES);
+                        scheduleBannerRetry(activity, gameLayout, gameView);
+                    }
                 }
                 
                 @Override
                 public void onAdClicked() {
                     Log.d(TAG, "Banner ad clicked");
+                    Analytics.sendAdEvent(activity, "banner", "clicked", bannerAdUnitId);
                 }
                 
                 @Override
@@ -325,6 +412,7 @@ public class YandexAds {
                 @Override
                 public void onImpression(ImpressionData impressionData) {
                     Log.d(TAG, "Banner ad impression recorded");
+                    Analytics.sendAdEvent(activity, "banner", "impression", bannerAdUnitId);
                 }
             });
             
@@ -358,9 +446,170 @@ public class YandexAds {
     }
     
     /**
+     * Schedule a banner retry after delay
+     */
+    private static void scheduleBannerRetry(Activity activity, ViewGroup gameLayout, View gameView) {
+        // Don't schedule retry if we're shutting down
+        if (!bannerRequested || activity == null || activity.isFinishing() || activity.isDestroyed()) {
+            return;
+        }
+        
+        if (retryHandler == null) {
+            retryHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+        }
+        
+        // Cancel any pending retry
+        if (retryRunnable != null) {
+            retryHandler.removeCallbacks(retryRunnable);
+        }
+        
+        retryRunnable = () -> {
+            try {
+                if (bannerRequested && !bannerVisible && 
+                    activity != null && !activity.isFinishing() && !activity.isDestroyed()) {
+                    Log.d(TAG, "Retrying banner load...");
+                    showBannerInternal(activity, gameLayout, gameView);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error during banner retry: " + e.getMessage());
+            }
+        };
+        
+        retryHandler.postDelayed(retryRunnable, BANNER_RETRY_DELAY_MS);
+    }
+    
+    /**
+     * Clean up banner view without affecting retry logic
+     */
+    private static void cleanupBannerView(Activity activity, ViewGroup gameLayout, View gameView) {
+        if (bannerAdView != null) {
+            bannerAdView.destroy();
+            bannerAdView = null;
+        }
+        
+        if (bannerContainer != null && gameLayout != null) {
+            try {
+                gameLayout.removeView(bannerContainer);
+            } catch (Exception e) {
+                Log.e(TAG, "Error removing banner container: " + e.getMessage());
+            }
+            bannerContainer.removeAllViews();
+            bannerContainer = null;
+        }
+        
+        // Restore game view layout
+        if (gameView != null && gameView.getLayoutParams() instanceof RelativeLayout.LayoutParams) {
+            RelativeLayout.LayoutParams gameParams = (RelativeLayout.LayoutParams) gameView.getLayoutParams();
+            gameParams.removeRule(RelativeLayout.ABOVE);
+            gameView.setLayoutParams(gameParams);
+        }
+        
+        bannerVisible = false;
+        bannerHeight = 0;
+    }
+    
+    /**
+     * Internal method to show banner (used for initial and retry)
+     */
+    private static void showBannerInternal(Activity activity, ViewGroup gameLayout, View gameView) {
+        if (activity.isFinishing() || activity.isDestroyed()) {
+            return;
+        }
+        
+        // Same logic as in showBanner's runOnUiThread block
+        DisplayMetrics displayMetrics = activity.getResources().getDisplayMetrics();
+        int adWidth = (int) (displayMetrics.widthPixels / displayMetrics.density);
+        BannerAdSize adSize = BannerAdSize.stickySize(activity, adWidth);
+        bannerHeight = adSize.getHeight();
+        
+        Log.d(TAG, "Banner retry - size: " + adWidth + "x" + bannerHeight);
+        Analytics.sendAdEvent(activity, "banner", "retry_request", bannerAdUnitId + "|attempt_" + bannerRetryCount);
+        
+        if (bannerContainer == null) {
+            bannerContainer = new FrameLayout(activity);
+            bannerContainer.setId(View.generateViewId());
+        }
+        
+        bannerAdView = new BannerAdView(activity);
+        bannerAdView.setAdUnitId(bannerAdUnitId);
+        bannerAdView.setAdSize(adSize);
+        
+        bannerAdView.setBannerAdEventListener(new BannerAdEventListener() {
+            @Override
+            public void onAdLoaded() {
+                Log.i(TAG, "Banner ad loaded on retry");
+                bannerVisible = true;
+                bannerRetryCount = 0;
+                Analytics.sendAdEvent(activity, "banner", "loaded_on_retry", bannerAdUnitId);
+            }
+            
+            @Override
+            public void onAdFailedToLoad(AdRequestError error) {
+                Log.e(TAG, "Banner retry failed: " + error.getDescription());
+                Analytics.sendAdEvent(activity, "banner", "retry_failed", 
+                    bannerAdUnitId + "|" + error.getCode() + "|attempt_" + bannerRetryCount);
+                
+                cleanupBannerView(activity, gameLayout, gameView);
+                
+                if (bannerRequested && bannerRetryCount < MAX_BANNER_RETRIES) {
+                    bannerRetryCount++;
+                    scheduleBannerRetry(activity, gameLayout, gameView);
+                }
+            }
+            
+            @Override
+            public void onAdClicked() {
+                Analytics.sendAdEvent(activity, "banner", "clicked", bannerAdUnitId);
+            }
+            
+            @Override
+            public void onLeftApplication() {}
+            
+            @Override
+            public void onReturnedToApplication() {}
+            
+            @Override
+            public void onImpression(ImpressionData impressionData) {
+                Analytics.sendAdEvent(activity, "banner", "impression", bannerAdUnitId);
+            }
+        });
+        
+        FrameLayout.LayoutParams bannerParams = new FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        bannerContainer.addView(bannerAdView, bannerParams);
+        
+        RelativeLayout.LayoutParams containerParams = new RelativeLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        containerParams.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
+        gameLayout.addView(bannerContainer, containerParams);
+        
+        if (gameView.getLayoutParams() instanceof RelativeLayout.LayoutParams) {
+            RelativeLayout.LayoutParams gameParams = (RelativeLayout.LayoutParams) gameView.getLayoutParams();
+            gameParams.addRule(RelativeLayout.ABOVE, bannerContainer.getId());
+            gameView.setLayoutParams(gameParams);
+        }
+        
+        bannerAdView.loadAd(new AdRequest.Builder().build());
+    }
+    
+    /**
      * Hide the banner and restore game view
      */
     public static void hideBanner(Activity activity, ViewGroup gameLayout, View gameView) {
+        // Stop requesting banner
+        bannerRequested = false;
+        bannerRetryCount = 0;
+        
+        // Cancel pending retries
+        if (retryHandler != null && retryRunnable != null) {
+            retryHandler.removeCallbacks(retryRunnable);
+            retryRunnable = null;
+        }
+        
         if (activity == null || activity.isFinishing() || activity.isDestroyed()) {
             Log.w(TAG, "hideBanner: activity is null or finishing");
             bannerVisible = false;
@@ -419,24 +668,79 @@ public class YandexAds {
     
     /**
      * Destroy all ads and release resources
+     * Should be called in Activity.onDestroy()
      */
     public static void destroy() {
         Log.d(TAG, "Destroying YandexAds resources");
         
-        if (bannerAdView != null) {
-            bannerAdView.destroy();
-            bannerAdView = null;
+        // Stop requesting banner first
+        bannerRequested = false;
+        
+        // Cancel any pending retries immediately
+        if (retryHandler != null) {
+            if (retryRunnable != null) {
+                retryHandler.removeCallbacks(retryRunnable);
+                retryRunnable = null;
+            }
+            retryHandler.removeCallbacksAndMessages(null);
+            retryHandler = null;
+        }
+        
+        // Clear interstitial callback to prevent calls after destroy
+        interstitialCallback = null;
+        
+        // Cleanup interstitial
+        if (interstitialAd != null) {
+            try {
+                interstitialAd.setAdEventListener(null);
+            } catch (Exception e) {
+                Log.e(TAG, "Error clearing interstitial listener: " + e.getMessage());
+            }
+            interstitialAd = null;
         }
         
         if (interstitialAdLoader != null) {
-            interstitialAdLoader.setAdLoadListener(null);
+            try {
+                interstitialAdLoader.setAdLoadListener(null);
+            } catch (Exception e) {
+                Log.e(TAG, "Error clearing interstitial loader listener: " + e.getMessage());
+            }
             interstitialAdLoader = null;
         }
         
-        cleanupInterstitial();
+        // Cleanup banner
+        if (bannerAdView != null) {
+            try {
+                bannerAdView.setBannerAdEventListener(null);
+                bannerAdView.destroy();
+            } catch (Exception e) {
+                Log.e(TAG, "Error destroying banner: " + e.getMessage());
+            }
+            bannerAdView = null;
+        }
         
-        bannerContainer = null;
+        // Clear container reference
+        if (bannerContainer != null) {
+            try {
+                bannerContainer.removeAllViews();
+            } catch (Exception e) {
+                Log.e(TAG, "Error clearing banner container: " + e.getMessage());
+            }
+            bannerContainer = null;
+        }
+        
+        // Clear all static references to prevent memory leaks
+        currentActivity = null;
+        currentGameLayout = null;
+        currentGameView = null;
+        
+        // Reset state
         bannerVisible = false;
+        bannerHeight = 0;
+        bannerRetryCount = 0;
+        isInterstitialLoading = false;
         initialized = false;
+        
+        Log.d(TAG, "YandexAds resources destroyed");
     }
 }

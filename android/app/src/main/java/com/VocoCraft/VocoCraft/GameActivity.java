@@ -414,7 +414,15 @@ public class GameActivity extends SDLActivity {
 	
 	@Override
 	protected void onDestroy() {
+		Log.d(TAG, "GameActivity.onDestroy() called");
+		
+		// Destroy ads BEFORE super.onDestroy() to ensure proper cleanup
+		try {
+			YandexAds.destroy();
+		} catch (Exception e) {
+			Log.e(TAG, "Error destroying YandexAds: " + e.getMessage());
+		}
+		
 		super.onDestroy();
-		YandexAds.destroy();
 	}
 }

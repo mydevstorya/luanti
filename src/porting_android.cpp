@@ -432,33 +432,50 @@ void showBanner()
 	infostream << "[YandexAds JNI] showBanner()" << std::endl;
 	
 	jmethodID showBannerMethod = jnienv->GetMethodID(activityClass, "showBanner", "()V");
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		errorstream << "[YandexAds JNI] Exception getting showBanner method" << std::endl;
+		return;
+	}
 	if (showBannerMethod == nullptr) {
 		errorstream << "[YandexAds JNI] showBanner method not found" << std::endl;
-		jnienv->ExceptionClear();
 		return;
 	}
 	
 	jnienv->CallVoidMethod(activity, showBannerMethod);
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		errorstream << "[YandexAds JNI] Exception in showBanner" << std::endl;
+		return;
+	}
 	infostream << "[YandexAds JNI] showBanner called" << std::endl;
 }
 
 void hideBanner()
 {
 	if (jnienv == nullptr || activity == nullptr || activityClass == nullptr) {
-		errorstream << "[YandexAds JNI] hideBanner() - JNI not initialized" << std::endl;
+		// Silent return on shutdown - not an error
 		return;
 	}
 	
 	infostream << "[YandexAds JNI] hideBanner()" << std::endl;
 	
 	jmethodID hideBannerMethod = jnienv->GetMethodID(activityClass, "hideBanner", "()V");
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		return;
+	}
 	if (hideBannerMethod == nullptr) {
 		errorstream << "[YandexAds JNI] hideBanner method not found" << std::endl;
-		jnienv->ExceptionClear();
 		return;
 	}
 	
 	jnienv->CallVoidMethod(activity, hideBannerMethod);
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		errorstream << "[YandexAds JNI] Exception in hideBanner" << std::endl;
+		return;
+	}
 	infostream << "[YandexAds JNI] hideBanner called" << std::endl;
 }
 
@@ -469,12 +486,20 @@ bool isBannerVisible()
 	}
 	
 	jmethodID isBannerVisibleMethod = jnienv->GetMethodID(activityClass, "isBannerVisible", "()Z");
-	if (isBannerVisibleMethod == nullptr) {
+	if (jnienv->ExceptionCheck()) {
 		jnienv->ExceptionClear();
 		return false;
 	}
+	if (isBannerVisibleMethod == nullptr) {
+		return false;
+	}
 	
-	return jnienv->CallBooleanMethod(activity, isBannerVisibleMethod);
+	bool result = jnienv->CallBooleanMethod(activity, isBannerVisibleMethod);
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		return false;
+	}
+	return result;
 }
 
 bool isInterstitialReady()
@@ -484,31 +509,45 @@ bool isInterstitialReady()
 	}
 	
 	jmethodID isReadyMethod = jnienv->GetMethodID(activityClass, "isInterstitialReady", "()Z");
-	if (isReadyMethod == nullptr) {
+	if (jnienv->ExceptionCheck()) {
 		jnienv->ExceptionClear();
 		return false;
 	}
+	if (isReadyMethod == nullptr) {
+		return false;
+	}
 	
-	return jnienv->CallBooleanMethod(activity, isReadyMethod);
+	bool result = jnienv->CallBooleanMethod(activity, isReadyMethod);
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		return false;
+	}
+	return result;
 }
 
 bool tryShowInterstitial()
 {
 	if (jnienv == nullptr || activity == nullptr || activityClass == nullptr) {
-		errorstream << "[YandexAds JNI] tryShowInterstitial() - JNI not initialized" << std::endl;
 		return false;
 	}
 	
 	infostream << "[YandexAds JNI] tryShowInterstitial()" << std::endl;
 	
 	jmethodID tryShowMethod = jnienv->GetMethodID(activityClass, "tryShowInterstitial", "()Z");
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		return false;
+	}
 	if (tryShowMethod == nullptr) {
 		errorstream << "[YandexAds JNI] tryShowInterstitial method not found" << std::endl;
-		jnienv->ExceptionClear();
 		return false;
 	}
 	
 	bool result = jnienv->CallBooleanMethod(activity, tryShowMethod);
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		return false;
+	}
 	infostream << "[YandexAds JNI] tryShowInterstitial returned: " << result << std::endl;
 	return result;
 }
