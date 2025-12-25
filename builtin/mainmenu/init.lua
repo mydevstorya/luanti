@@ -56,6 +56,11 @@ end
 
 --------------------------------------------------------------------------------
 local function init_globals()
+	-- Hide banner when entering main menu (including return from game)
+	if core.hide_banner then
+		core.hide_banner()
+	end
+	
 	-- Init gamedata
 	gamedata.worldindex = 0
 

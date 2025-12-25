@@ -35,6 +35,19 @@ Java_net_minetest_minetest_GameActivity_saveSettings(JNIEnv* env, jobject /* thi
 		g_settings->updateConfigFile(g_settings_path.c_str());
 }
 
+// Native callbacks for interstitial ad events (called from Java)
+extern "C" JNIEXPORT void JNICALL
+Java_com_VocoCraft_VocoCraft_GameActivity_onInterstitialDismissedNative(JNIEnv* env, jobject /* this */) {
+	infostream << "[YandexAds] Interstitial dismissed (native callback)" << std::endl;
+	// Note: Game unpause should be handled in Lua after try_show_interstitial returns
+	// This is just for logging purposes
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_VocoCraft_VocoCraft_GameActivity_onInterstitialFailedNative(JNIEnv* env, jobject /* this */) {
+	infostream << "[YandexAds] Interstitial failed (native callback)" << std::endl;
+}
+
 namespace porting {
 	// used here:
 	void cleanupAndroid();
@@ -405,6 +418,99 @@ void sendWorldCreatedEvent(const std::string &worldName, const std::string &game
 	jnienv->DeleteLocalRef(jGameId);
 	jnienv->DeleteLocalRef(jMapgen);
 	jnienv->DeleteLocalRef(analyticsClass);
+}
+
+// Yandex Ads functions
+
+void showBanner()
+{
+	if (jnienv == nullptr || activity == nullptr || activityClass == nullptr) {
+		errorstream << "[YandexAds JNI] showBanner() - JNI not initialized" << std::endl;
+		return;
+	}
+	
+	infostream << "[YandexAds JNI] showBanner()" << std::endl;
+	
+	jmethodID showBannerMethod = jnienv->GetMethodID(activityClass, "showBanner", "()V");
+	if (showBannerMethod == nullptr) {
+		errorstream << "[YandexAds JNI] showBanner method not found" << std::endl;
+		jnienv->ExceptionClear();
+		return;
+	}
+	
+	jnienv->CallVoidMethod(activity, showBannerMethod);
+	infostream << "[YandexAds JNI] showBanner called" << std::endl;
+}
+
+void hideBanner()
+{
+	if (jnienv == nullptr || activity == nullptr || activityClass == nullptr) {
+		errorstream << "[YandexAds JNI] hideBanner() - JNI not initialized" << std::endl;
+		return;
+	}
+	
+	infostream << "[YandexAds JNI] hideBanner()" << std::endl;
+	
+	jmethodID hideBannerMethod = jnienv->GetMethodID(activityClass, "hideBanner", "()V");
+	if (hideBannerMethod == nullptr) {
+		errorstream << "[YandexAds JNI] hideBanner method not found" << std::endl;
+		jnienv->ExceptionClear();
+		return;
+	}
+	
+	jnienv->CallVoidMethod(activity, hideBannerMethod);
+	infostream << "[YandexAds JNI] hideBanner called" << std::endl;
+}
+
+bool isBannerVisible()
+{
+	if (jnienv == nullptr || activity == nullptr || activityClass == nullptr) {
+		return false;
+	}
+	
+	jmethodID isBannerVisibleMethod = jnienv->GetMethodID(activityClass, "isBannerVisible", "()Z");
+	if (isBannerVisibleMethod == nullptr) {
+		jnienv->ExceptionClear();
+		return false;
+	}
+	
+	return jnienv->CallBooleanMethod(activity, isBannerVisibleMethod);
+}
+
+bool isInterstitialReady()
+{
+	if (jnienv == nullptr || activity == nullptr || activityClass == nullptr) {
+		return false;
+	}
+	
+	jmethodID isReadyMethod = jnienv->GetMethodID(activityClass, "isInterstitialReady", "()Z");
+	if (isReadyMethod == nullptr) {
+		jnienv->ExceptionClear();
+		return false;
+	}
+	
+	return jnienv->CallBooleanMethod(activity, isReadyMethod);
+}
+
+bool tryShowInterstitial()
+{
+	if (jnienv == nullptr || activity == nullptr || activityClass == nullptr) {
+		errorstream << "[YandexAds JNI] tryShowInterstitial() - JNI not initialized" << std::endl;
+		return false;
+	}
+	
+	infostream << "[YandexAds JNI] tryShowInterstitial()" << std::endl;
+	
+	jmethodID tryShowMethod = jnienv->GetMethodID(activityClass, "tryShowInterstitial", "()Z");
+	if (tryShowMethod == nullptr) {
+		errorstream << "[YandexAds JNI] tryShowInterstitial method not found" << std::endl;
+		jnienv->ExceptionClear();
+		return false;
+	}
+	
+	bool result = jnienv->CallBooleanMethod(activity, tryShowMethod);
+	infostream << "[YandexAds JNI] tryShowInterstitial returned: " << result << std::endl;
+	return result;
 }
 
 }

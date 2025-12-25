@@ -20,6 +20,11 @@
 #include "gui/guiOpenURL.h"
 #include "gui/guiVolumeChange.h"
 
+#ifdef __ANDROID__
+#include "porting_android.h"
+#include <chrono>
+#endif
+
 /*
 	Text input system
 */
@@ -308,6 +313,24 @@ void GameFormSpec::showNodeFormspec(const std::string &formspec, const v3s16 &no
 	m_formspec->setFormSpec(formspec, inventoryloc);
 }
 
+#ifdef __ANDROID__
+// Cooldown tracking for interstitial ads (3.5 minutes = 210 seconds)
+static constexpr int INTERSTITIAL_COOLDOWN_SECONDS = 210; // 3.5 minutes
+static std::chrono::steady_clock::time_point s_last_interstitial_time = std::chrono::steady_clock::now();
+
+static void tryShowInterstitialWithCooldown()
+{
+	using namespace std::chrono;
+	const auto now = steady_clock::now();
+	auto elapsed = duration_cast<seconds>(now - s_last_interstitial_time).count();
+	
+	if (elapsed >= INTERSTITIAL_COOLDOWN_SECONDS) {
+		porting::tryShowInterstitial();
+		s_last_interstitial_time = now;
+	}
+}
+#endif
+
 void GameFormSpec::showPlayerInventory(const std::string *fs_override)
 {
 	/*
@@ -318,6 +341,10 @@ void GameFormSpec::showPlayerInventory(const std::string *fs_override)
 	LocalPlayer *player = m_client->getEnv().getLocalPlayer();
 	if (!player || !player->getCAO())
 		return;
+
+#ifdef __ANDROID__
+	tryShowInterstitialWithCooldown();
+#endif
 
 	infostream << "Game: Launching inventory" << std::endl;
 
@@ -461,6 +488,10 @@ void GameFormSpec::showPauseMenu()
 
 void GameFormSpec::showDeathFormspecLegacy()
 {
+#ifdef __ANDROID__
+	tryShowInterstitialWithCooldown();
+#endif
+
 	static std::string formspec_str =
 		std::string("formspec_version[1]") +
 		SIZE_TAG

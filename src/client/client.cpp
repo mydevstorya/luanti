@@ -170,7 +170,9 @@ void Client::loadMods()
 	// Don't load mods twice.
 	// If client scripting is disabled by the client, don't load builtin or
 	// client-provided mods.
-	if (m_mods_loaded || !g_settings->getBool("enable_client_modding"))
+	if (m_mods_loaded)
+		return;
+	if (!g_settings->getBool("enable_client_modding"))
 		return;
 
 	// If client scripting is disabled by the server, don't load builtin or

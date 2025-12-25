@@ -61,6 +61,10 @@
 #include "util/tracy_wrapper.h"
 #include "item_visuals_manager.h"
 
+#ifdef __ANDROID__
+#include "porting_android.h"
+#endif
+
 #if USE_SOUND
 	#include "client/sound/sound_openal.h"
 #endif
@@ -993,6 +997,7 @@ void Game::run()
 
 #ifdef __ANDROID__
 	porting::setPlayingNowNotification(true);
+	porting::showBanner();
 #endif
 
 	auto framemarker = FrameMarker("Game::run()-frame").started();
@@ -1087,6 +1092,10 @@ void Game::run()
 
 void Game::shutdown()
 {
+#ifdef __ANDROID__
+	porting::hideBanner();
+#endif
+
 	// Delete text and menus first
 	m_game_ui->clearText();
 	m_game_formspec.reset();

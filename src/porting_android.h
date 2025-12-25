@@ -113,4 +113,32 @@ void sendAnalyticsEventWithParams(const std::string &eventName, const std::strin
  */
 void sendWorldCreatedEvent(const std::string &worldName, const std::string &gameId, const std::string &mapgen);
 
+// Yandex Ads functions
+
+/**
+ * Show adaptive sticky banner at the bottom of the screen
+ */
+void showBanner();
+
+/**
+ * Hide the banner
+ */
+void hideBanner();
+
+/**
+ * Check if banner is currently visible
+ */
+bool isBannerVisible();
+
+/**
+ * Check if interstitial ad is ready
+ */
+bool isInterstitialReady();
+
+/**
+ * Try to show interstitial ad
+ * @return true if ad will be shown, false if no ad available
+ */
+bool tryShowInterstitial();
+
 }

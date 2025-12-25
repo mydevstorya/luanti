@@ -135,4 +135,6 @@ dependencies {
 	implementation 'androidx.appcompat:appcompat:1.6.1'
 	// AppMetrica SDK
 	implementation 'io.appmetrica.analytics:analytics:7.14.0'
+	// Yandex Mobile Ads SDK
+	implementation 'com.yandex.android:mobileads:7.18.1'
 }

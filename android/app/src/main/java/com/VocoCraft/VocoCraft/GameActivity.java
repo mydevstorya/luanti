@@ -30,11 +30,14 @@ import android.content.Intent;
 import android.content.ActivityNotFoundException;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.InputType;
 import android.util.Log;
 import android.view.KeyEvent;
+import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
@@ -55,6 +58,16 @@ import java.util.Objects;
 @Keep
 @SuppressWarnings("unused")
 public class GameActivity extends SDLActivity {
+	private static final String TAG = "GameActivity";
+	
+	@Override
+	protected void onCreate(Bundle savedInstanceState) {
+		super.onCreate(savedInstanceState);
+		
+		// Initialize Yandex Mobile Ads
+		YandexAds.init(this);
+	}
+	
 	@Override
 	protected String getMainSharedObject() {
 		return getContext().getApplicationInfo().nativeLibraryDir + "/libluanti.so";
@@ -333,5 +346,75 @@ public class GameActivity extends SDLActivity {
 	public void setPlayingNowNotification(boolean show) {
 		gameNotificationShown = show;
 		updateGameNotification();
+	}
+	
+	// ==================== Yandex Ads Methods ====================
+	
+	/**
+	 * Show adaptive sticky banner at the bottom of the screen.
+	 * The game view is resized to make room for the banner.
+	 */
+	public void showBanner() {
+		Log.d(TAG, "showBanner() called from native");
+		if (mLayout != null && mSurface != null) {
+			YandexAds.showBanner(this, mLayout, mSurface);
+		} else {
+			Log.e(TAG, "Cannot show banner: layout or surface is null");
+		}
+	}
+	
+	/**
+	 * Hide the banner and restore full game view.
+	 */
+	public void hideBanner() {
+		Log.d(TAG, "hideBanner() called from native");
+		if (mLayout != null && mSurface != null) {
+			YandexAds.hideBanner(this, mLayout, mSurface);
+		}
+	}
+	
+	/**
+	 * Check if banner is currently visible.
+	 */
+	public boolean isBannerVisible() {
+		return YandexAds.isBannerVisible();
+	}
+	
+	/**
+	 * Check if interstitial ad is ready to show.
+	 */
+	public boolean isInterstitialReady() {
+		return YandexAds.isInterstitialReady();
+	}
+	
+	/**
+	 * Try to show interstitial ad.
+	 * @return true if ad will be shown, false if no ad available
+	 */
+	public boolean tryShowInterstitial() {
+		Log.d(TAG, "tryShowInterstitial() called from native");
+		return YandexAds.tryShowInterstitial(this, new YandexAds.InterstitialCallback() {
+			@Override
+			public void onInterstitialDismissed() {
+				Log.d(TAG, "Interstitial dismissed, notifying native");
+				onInterstitialDismissedNative();
+			}
+			
+			@Override
+			public void onInterstitialFailed() {
+				Log.d(TAG, "Interstitial failed, notifying native");
+				onInterstitialFailedNative();
+			}
+		});
+	}
+	
+	// Native callbacks for interstitial events
+	private native void onInterstitialDismissedNative();
+	private native void onInterstitialFailedNative();
+	
+	@Override
+	protected void onDestroy() {
+		super.onDestroy();
+		YandexAds.destroy();
 	}
 }

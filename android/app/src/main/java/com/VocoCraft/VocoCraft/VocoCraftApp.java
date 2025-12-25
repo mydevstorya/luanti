@@ -14,7 +14,7 @@ import android.app.Application;
 
 /**
  * Application class for VocoCraft.
- * Initializes global services like Analytics (AppMetrica).
+ * Initializes global services like Analytics (AppMetrica) and Yandex Mobile Ads.
  */
 public class VocoCraftApp extends Application {
     
@@ -24,5 +24,8 @@ public class VocoCraftApp extends Application {
         
         // Initialize AppMetrica Analytics
         Analytics.init(this);
+        
+        // Note: Yandex Mobile Ads is initialized later in GameActivity
+        // because it requires Activity context for proper initialization
     }
 }
