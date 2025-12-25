@@ -143,3 +143,4 @@ vcpkg_installed
 
 # Secrets (API keys, etc.)
 android/app/src/main/assets/secrets.properties
+android/user.keystore
