@@ -144,6 +144,11 @@ private:
 	static int l_send_analytics_event(lua_State *L);
 	static int l_send_world_created_event(lua_State *L);
 
+	// LAN Discovery
+	static int l_scan_lan_servers(lua_State *L);
+	static int l_get_lan_servers(lua_State *L);
+	static int l_clear_lan_servers(lua_State *L);
+
 	// async
 	static int l_do_async_callback(lua_State *L);
 

@@ -29,6 +29,7 @@
 #include "porting.h"
 #include "serialization.h" // SER_FMT_VER_HIGHEST_*
 #include "network/socket.h"
+#include "network/lan_discovery.h"
 #include "mapblock.h"
 #if USE_CURSES
 	#include "terminal_chat_console.h"
@@ -704,6 +705,7 @@ static bool init_common(const Settings &cmd_args, int argc, char *argv[])
 	startup_message();
 
 	sockets_init();
+	init_lan_discovery();
 
 	// Initialize g_settings
 	set_default_settings();
@@ -745,6 +747,7 @@ static bool init_common(const Settings &cmd_args, int argc, char *argv[])
 
 static void uninit_common()
 {
+	shutdown_lan_discovery();
 	httpfetch_cleanup();
 
 	sockets_cleanup();

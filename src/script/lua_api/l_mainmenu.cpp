@@ -24,6 +24,7 @@
 #include "client/renderingengine.h"
 #include "client/texturepaths.h"
 #include "network/networkprotocol.h"
+#include "network/lan_discovery.h"
 #include "content/mod_configuration.h"
 #include "threading/mutex_auto_lock.h"
 #include "common/c_converter.h"
@@ -1068,6 +1069,99 @@ int ModApiMainMenu::l_send_world_created_event(lua_State *L)
 }
 
 /******************************************************************************/
+int ModApiMainMenu::l_scan_lan_servers(lua_State *L)
+{
+	int timeout_ms = 2000; // Default 2 seconds
+	if (lua_isnumber(L, 1)) {
+		timeout_ms = lua_tointeger(L, 1);
+	}
+	
+	if (g_lan_discovery_client) {
+		g_lan_discovery_client->scan(timeout_ms);
+		lua_pushboolean(L, true);
+	} else {
+		lua_pushboolean(L, false);
+	}
+	return 1;
+}
+
+/******************************************************************************/
+int ModApiMainMenu::l_get_lan_servers(lua_State *L)
+{
+	lua_newtable(L);
+	
+	if (g_lan_discovery_client) {
+		std::vector<LANServerInfo> servers = g_lan_discovery_client->getServers();
+		
+		int index = 1;
+		for (const auto &server : servers) {
+			lua_newtable(L);
+			
+			lua_pushstring(L, "address");
+			lua_pushstring(L, server.address.c_str());
+			lua_settable(L, -3);
+			
+			lua_pushstring(L, "port");
+			lua_pushinteger(L, server.port);
+			lua_settable(L, -3);
+			
+			lua_pushstring(L, "name");
+			lua_pushstring(L, server.name.c_str());
+			lua_settable(L, -3);
+			
+			lua_pushstring(L, "description");
+			lua_pushstring(L, server.description.c_str());
+			lua_settable(L, -3);
+			
+			lua_pushstring(L, "clients");
+			lua_pushinteger(L, server.clients);
+			lua_settable(L, -3);
+			
+			lua_pushstring(L, "clients_max");
+			lua_pushinteger(L, server.clients_max);
+			lua_settable(L, -3);
+			
+			lua_pushstring(L, "creative");
+			lua_pushboolean(L, server.creative);
+			lua_settable(L, -3);
+			
+			lua_pushstring(L, "damage");
+			lua_pushboolean(L, server.damage);
+			lua_settable(L, -3);
+			
+			lua_pushstring(L, "pvp");
+			lua_pushboolean(L, server.pvp);
+			lua_settable(L, -3);
+			
+			lua_pushstring(L, "gameid");
+			lua_pushstring(L, server.gameid.c_str());
+			lua_settable(L, -3);
+			
+			lua_pushstring(L, "version");
+			lua_pushstring(L, server.version.c_str());
+			lua_settable(L, -3);
+			
+			lua_pushstring(L, "is_lan");
+			lua_pushboolean(L, true);
+			lua_settable(L, -3);
+			
+			lua_rawseti(L, -2, index++);
+		}
+	}
+	
+	return 1;
+}
+
+/******************************************************************************/
+int ModApiMainMenu::l_clear_lan_servers(lua_State *L)
+{
+	if (g_lan_discovery_client) {
+		g_lan_discovery_client->clear();
+	}
+	return 0;
+}
+
+/******************************************************************************/
 int ModApiMainMenu::l_do_async_callback(lua_State *L)
 {
 	MainMenuScripting *script = getScriptApi<MainMenuScripting>(L);
@@ -1142,6 +1236,9 @@ void ModApiMainMenu::Initialize(lua_State *L, int top)
 	API_FCT(do_async_callback);
 	API_FCT(send_analytics_event);
 	API_FCT(send_world_created_event);
+	API_FCT(scan_lan_servers);
+	API_FCT(get_lan_servers);
+	API_FCT(clear_lan_servers);
 
 	lua_pushboolean(L, g_first_run);
 	lua_setfield(L, top, "is_first_run");

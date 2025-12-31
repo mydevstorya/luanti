@@ -60,6 +60,7 @@
 #include <IAnimatedMeshSceneNode.h>
 #include "util/tracy_wrapper.h"
 #include "item_visuals_manager.h"
+#include "network/lan_discovery.h"
 
 #ifdef __ANDROID__
 #include "porting_android.h"
@@ -885,6 +886,13 @@ Game::Game() :
 
 Game::~Game()
 {
+	// Stop LAN discovery server if running
+	if (g_lan_discovery_server) {
+		g_lan_discovery_server->stop();
+		delete g_lan_discovery_server;
+		g_lan_discovery_server = nullptr;
+	}
+
 	delete client;
 	delete soundmaker;
 	sound_manager.reset();
@@ -1261,6 +1269,27 @@ bool Game::createServer(const std::string &map_dir,
 
 	server = new Server(map_dir, gamespec, simple_singleplayer_mode, bind_addr,
 			false, nullptr, error_message);
+
+	// Start LAN discovery server if hosting a game (not simple singleplayer)
+	if (!simple_singleplayer_mode && g_lan_discovery_server == nullptr) {
+		g_lan_discovery_server = new LANDiscoveryServer();
+		u16 game_port = g_settings->getU16("port");
+		g_lan_discovery_server->start(game_port);
+		
+		// Set initial server info
+		std::string server_name = g_settings->get("name");
+		if (server_name.empty()) server_name = "VocoCraft Server";
+		g_lan_discovery_server->updateServerInfo(
+			server_name,
+			g_settings->get("server_description"),
+			0, // clients (will be updated)
+			g_settings->getU16("max_users"),
+			g_settings->getBool("creative_mode"),
+			g_settings->getBool("enable_damage"),
+			g_settings->getBool("enable_pvp"),
+			gamespec.id
+		);
+	}
 
 	auto start_thread = runInThread([=] {
 		server->start();
@@ -2594,6 +2623,16 @@ inline void Game::step(f32 dtime)
 			});
 
 		server->step();
+		
+		// Update LAN discovery server with current player count
+		if (g_lan_discovery_server) {
+			static u32 last_player_count = 0;
+			u32 player_count = server->getEnv().getPlayerCount();
+			if (player_count != last_player_count) {
+				last_player_count = player_count;
+				g_lan_discovery_server->setPlayerCount(player_count);
+			}
+		}
 	}
 
 	if (!m_is_paused)

@@ -288,11 +288,18 @@ local function main_button_handler(this, fields, name, tabdata)
 
 	if fields.subtab_worlds then
 		current_subtab = "worlds"
+		-- Stop servers tab auto-refresh when switching to worlds
+		if mobile_online.on_change then
+			mobile_online.on_change("LEAVE")
+		end
 		return true
 	end
 	if fields.subtab_servers then
 		current_subtab = "servers"
-		mobile_online.on_enter()
+		-- Start servers tab auto-refresh
+		if mobile_online.on_change then
+			mobile_online.on_change("ENTER")
+		end
 		return true
 	end
 

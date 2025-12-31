@@ -4,6 +4,9 @@
 -- VocoCraft Mobile UI - Online Servers Screen
 
 local selected_server_idx = 0
+local lan_servers = {}  -- LAN servers discovered via UDP broadcast (auto-scanned in C++)
+local lan_refresh_active = false  -- Is auto-refresh polling active
+local last_lan_count = 0  -- Track changes to trigger refresh
 
 --------------------------------------------------------------------------------
 -- Helper functions (from tab_online.lua)
@@ -78,6 +81,21 @@ local function find_selected_server()
 			return server
 		end
 	end
+	-- Check LAN servers too
+	for _, server in ipairs(lan_servers) do
+		if server.address == address and server.port == port then
+			return {
+				address = server.address,
+				port = server.port,
+				name = server.name or (server.address .. ":" .. server.port),
+				description = server.description or "",
+				clients = server.clients,
+				clients_max = server.clients_max,
+				is_lan = true,
+				is_compatible = true
+			}
+		end
+	end
 end
 
 local function is_selected_fav(server)
@@ -116,9 +134,9 @@ local function get_formspec(W, H, CONTENT_Y, CONTENT_H, tabdata)
 	
 	-- Search and refresh buttons
 	table.insert(fs, "style[btn_mp_search;bgcolor=#555555]")
-	table.insert(fs, "button[" .. (list_x + list_w - 1.9) .. "," .. list_y .. ";0.9," .. search_h .. ";btn_mp_search;🔍]")
+	table.insert(fs, "button[" .. (list_x + list_w - 1.9) .. "," .. list_y .. ";0.9," .. search_h .. ";btn_mp_search;>]")
 	table.insert(fs, "style[btn_mp_refresh;bgcolor=#555555]")
-	table.insert(fs, "button[" .. (list_x + list_w - 0.9) .. "," .. list_y .. ";0.9," .. search_h .. ";btn_mp_refresh;↻]")
+	table.insert(fs, "button[" .. (list_x + list_w - 0.9) .. "," .. list_y .. ";0.9," .. search_h .. ";btn_mp_refresh;R]")
 	
 	list_y = list_y + search_h + 0.15
 	local list_h = CONTENT_H - search_h - 0.55
@@ -159,12 +177,35 @@ local function get_formspec(W, H, CONTENT_Y, CONTENT_H, tabdata)
 			end
 		end
 		
-		-- Local Servers section (LAN discovery - placeholder for now)
-		-- TODO: Implement UDP broadcast discovery on port 30000
-		rows[#rows + 1] = "#55aaff,📡 " .. fgettext("Local Servers") .. ",,"
-		-- Local servers would be added here when discovery is implemented
-		-- For now, show hint to add manually via favorites
-		rows[#rows + 1] = "#666666," .. fgettext("Add LAN server to Favorites") .. ",,"
+		-- Local Servers section (LAN discovery via UDP broadcast - auto-scanned in C++)
+		rows[#rows + 1] = "#55aaff,~ " .. fgettext("Local Servers") .. ",,"
+		
+		-- Get discovered LAN servers (C++ scans every 3 seconds in background)
+		if core.get_lan_servers then
+			lan_servers = core.get_lan_servers() or {}
+		end
+		
+		if #lan_servers > 0 then
+			for _, server in ipairs(lan_servers) do
+				-- Add to lookup for selection
+				tabdata.lookup[#rows + 1] = {
+					address = server.address,
+					port = server.port,
+					name = server.name or (server.address .. ":" .. server.port),
+					description = server.description or "",
+					clients = server.clients,
+					clients_max = server.clients_max,
+					is_lan = true,
+					is_compatible = true
+				}
+				local name = server.name or (server.address .. ":" .. server.port)
+				local clients = (server.clients or "?") .. "/" .. (server.clients_max or "?")
+				rows[#rows + 1] = "#55aaff," .. core.formspec_escape(name:sub(1,35)) .. 
+					",#55aaff," .. clients
+			end
+		else
+			rows[#rows + 1] = "#666666," .. fgettext("No LAN servers found") .. ",,"
+		end
 		
 		-- Public servers section (header only, servers hidden for VocoCraft)
 		rows[#rows + 1] = "#4bdd42,● " .. fgettext("Public Servers") .. ",,"
@@ -375,7 +416,11 @@ local function handle_buttons(fields, tabdata)
 			gamedata.allow_login_or_register = enable_split and "login" or "any"
 
 			set_selected_server(server)
-			serverlistmgr.add_favorite(server)
+			
+			-- Don't add LAN servers to favorites automatically
+			if not server.is_lan then
+				serverlistmgr.add_favorite(server)
+			end
 			
 			core.settings:set("address", gamedata.address)
 			core.settings:set("remote_port", gamedata.port)
@@ -445,14 +490,80 @@ local function handle_buttons(fields, tabdata)
 end
 
 --------------------------------------------------------------------------------
--- Initialize server list on load
+-- LAN servers auto-refresh (polls C++ every 2 seconds and updates UI if changed)
 --------------------------------------------------------------------------------
-local function on_enter()
-	serverlistmgr.sync()
+local function start_lan_refresh()
+	if lan_refresh_active then return end
+	lan_refresh_active = true
+	
+	local function poll_lan_servers()
+		if not lan_refresh_active then return end
+		
+		-- Get current LAN servers from C++
+		local new_servers = {}
+		if core.get_lan_servers then
+			new_servers = core.get_lan_servers() or {}
+		end
+		
+		-- Check if list changed (simple count + first server check)
+		local changed = (#new_servers ~= last_lan_count)
+		if not changed and #new_servers > 0 and #lan_servers > 0 then
+			-- Also check if first server info changed (e.g. player count)
+			local new_first = new_servers[1]
+			local old_first = lan_servers[1]
+			if new_first and old_first then
+				if new_first.clients ~= old_first.clients or
+				   new_first.address ~= old_first.address or
+				   new_first.name ~= old_first.name then
+					changed = true
+				end
+			end
+		end
+		
+		if changed then
+			lan_servers = new_servers
+			last_lan_count = #new_servers
+			-- Trigger UI refresh
+			core.event_handler("Refresh")
+		end
+		
+		-- Schedule next poll (2 seconds)
+		if lan_refresh_active then
+			core.handle_async(
+				function() return true end,
+				nil,
+				function()
+					-- Small delay then poll again
+					poll_lan_servers()
+				end
+			)
+		end
+	end
+	
+	-- Start polling
+	poll_lan_servers()
+end
+
+local function stop_lan_refresh()
+	lan_refresh_active = false
+end
+
+--------------------------------------------------------------------------------
+-- Tab change handler
+--------------------------------------------------------------------------------
+local function on_change(type)
+	if type == "ENTER" then
+		serverlistmgr.sync()
+		-- Start auto-refresh for LAN servers
+		start_lan_refresh()
+	elseif type == "LEAVE" then
+		-- Stop auto-refresh when leaving tab
+		stop_lan_refresh()
+	end
 end
 
 return {
 	get_formspec = get_formspec,
 	handle_buttons = handle_buttons,
-	on_enter = on_enter,
+	on_change = on_change,
 }
