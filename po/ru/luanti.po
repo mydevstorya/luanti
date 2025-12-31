@@ -7750,3 +7750,117 @@ msgstr "Лимит одновременных соединений cURL"
 
 #~ msgid "X Button 2"
 #~ msgstr "Доп. кнопка 2"
+
+# VocoCraft Mobile UI translations
+#: builtin/mainmenu/vococraft/dlg_create_world.lua
+msgid "Create New World"
+msgstr "Создать новый мир"
+
+#: builtin/mainmenu/vococraft/dlg_create_world.lua
+msgid "Seed (optional)"
+msgstr "Сид (необязательно)"
+
+#: builtin/mainmenu/vococraft/dlg_create_world.lua
+msgid "World type"
+msgstr "Тип мира"
+
+#: builtin/mainmenu/vococraft/dlg_create_world.lua
+msgid "Create"
+msgstr "Создать"
+
+#: builtin/mainmenu/vococraft/tab_local.lua
+msgid "No worlds yet!"
+msgstr "Пока нет миров!"
+
+#: builtin/mainmenu/vococraft/tab_local.lua
+msgid "Select a world"
+msgstr "Выберите мир"
+
+#: builtin/mainmenu/vococraft/tab_local.lua
+msgid "Create World"
+msgstr "Создать мир"
+
+#: builtin/mainmenu/vococraft/tab_local.lua
+msgid "Create New World"
+msgstr "Создать новый мир"
+
+#: builtin/mainmenu/vococraft/tab_local.lua
+msgid "Host Server"
+msgstr "Хостить сервер"
+
+#: builtin/mainmenu/vococraft/tab_local.lua
+msgid "Server Name"
+msgstr "Имя сервера"
+
+#: builtin/mainmenu/vococraft/tab_local.lua
+msgid "Password"
+msgstr "Пароль"
+
+#: builtin/mainmenu/vococraft/tab_local.lua
+msgid "Port"
+msgstr "Порт"
+
+#: builtin/mainmenu/vococraft/tab_local.lua
+msgid "Announce Server"
+msgstr "Анонсировать сервер"
+
+#: builtin/mainmenu/vococraft/tab_local.lua
+msgid "HOST GAME"
+msgstr "ЗАПУСТИТЬ СЕРВЕР"
+
+#: builtin/mainmenu/vococraft/tab_local.lua
+msgid "PLAY"
+msgstr "ИГРАТЬ"
+
+#: builtin/mainmenu/vococraft/tab_local.lua
+msgid "More"
+msgstr "Ещё"
+
+#: builtin/mainmenu/vococraft/tab_local.lua
+msgid "LAN only (same Wi-Fi)"
+msgstr "Только LAN (одна Wi-Fi сеть)"
+
+# VocoCraft Mobile Server Browser translations
+#: builtin/mainmenu/vococraft/tab_mobile_online.lua
+msgid "Loading servers..."
+msgstr "Загрузка серверов..."
+
+#: builtin/mainmenu/vococraft/tab_mobile_online.lua
+msgid "Incompatible"
+msgstr "Несовместимые"
+
+#: builtin/mainmenu/vococraft/tab_mobile_online.lua
+msgid "Select a server"
+msgstr "Выберите сервер"
+
+#: builtin/mainmenu/vococraft/tab_mobile_online.lua
+msgid "Add to favorites"
+msgstr "Добавить в избранное"
+
+#: builtin/mainmenu/vococraft/tab_mobile_online.lua
+msgid "Remove from favorites"
+msgstr "Удалить из избранного"
+
+#: builtin/mainmenu/vococraft/tab_mobile_online.lua
+msgid "Your Name"
+msgstr "Ваше имя"
+
+#: builtin/mainmenu/vococraft/tab_mobile_online.lua
+msgid "JOIN"
+msgstr "ВОЙТИ"
+
+#: builtin/mainmenu/vococraft/tab_mobile_online.lua
+msgid "Server browser coming soon..."
+msgstr "Браузер серверов скоро..."
+
+#: builtin/mainmenu/vococraft/tab_mobile_online.lua
+msgid "Local Servers"
+msgstr "Локальные серверы"
+
+#: builtin/mainmenu/vococraft/tab_mobile_online.lua
+msgid "Add LAN server to Favorites"
+msgstr "Добавьте LAN сервер в Избранное"
+
+#: builtin/mainmenu/vococraft/tab_mobile_online.lua
+msgid "Coming soon..."
+msgstr "Скоро..."

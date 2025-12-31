@@ -2,12 +2,28 @@
 -- Copyright (C) 2014 sapier
 -- SPDX-License-Identifier: LGPL-2.1-or-later
 
-MAIN_TAB_W = 15.5
-MAIN_TAB_H = 7.1
-TABHEADER_H = 0.85
-GAMEBAR_H = 1.25
-GAMEBAR_OFFSET_DESKTOP = 0.375
-GAMEBAR_OFFSET_TOUCH = 0.15
+-- === VOCOCRAFT: Mobile UI Configuration ===
+-- Set to false to use original Luanti UI
+local VOCOCRAFT_MOBILE_UI = true
+-- === END VOCOCRAFT ===
+
+-- === VOCOCRAFT: Mobile UI dimensions ===
+if VOCOCRAFT_MOBILE_UI then
+	MAIN_TAB_W = 16
+	MAIN_TAB_H = 9.5
+	TABHEADER_H = 0
+	GAMEBAR_H = 0
+	GAMEBAR_OFFSET_DESKTOP = 0
+	GAMEBAR_OFFSET_TOUCH = 0
+else
+	MAIN_TAB_W = 15.5
+	MAIN_TAB_H = 7.1
+	TABHEADER_H = 0.85
+	GAMEBAR_H = 1.25
+	GAMEBAR_OFFSET_DESKTOP = 0.375
+	GAMEBAR_OFFSET_TOUCH = 0.15
+end
+-- === END VOCOCRAFT ===
 
 local menupath = core.get_mainmenu_path()
 local basepath = core.get_builtin_path()
@@ -28,7 +44,15 @@ dofile(menupath .. DIR_DELIM .. "content" .. DIR_DELIM .. "init.lua")
 
 dofile(menupath .. DIR_DELIM .. "dlg_config_world.lua")
 dofile(basepath .. "common" .. DIR_DELIM .. "settings" .. DIR_DELIM .. "init.lua")
-dofile(menupath .. DIR_DELIM .. "dlg_create_world.lua")
+
+-- === VOCOCRAFT: Load mobile or standard dialogs ===
+if VOCOCRAFT_MOBILE_UI then
+	dofile(menupath .. DIR_DELIM .. "vococraft" .. DIR_DELIM .. "dlg_create_world.lua")
+else
+	dofile(menupath .. DIR_DELIM .. "dlg_create_world.lua")
+end
+-- === END VOCOCRAFT ===
+
 dofile(menupath .. DIR_DELIM .. "dlg_delete_content.lua")
 dofile(menupath .. DIR_DELIM .. "dlg_delete_world.lua")
 dofile(menupath .. DIR_DELIM .. "dlg_register.lua")
@@ -39,12 +63,18 @@ dofile(menupath .. DIR_DELIM .. "dlg_rebind_keys.lua")
 dofile(menupath .. DIR_DELIM .. "dlg_clients_list.lua")
 dofile(menupath .. DIR_DELIM .. "dlg_server_list_mods.lua")
 
-local tabs = {
-	content  = dofile(menupath .. DIR_DELIM .. "tab_content.lua"),
-	about = dofile(menupath .. DIR_DELIM .. "tab_about.lua"),
-	local_game = dofile(menupath .. DIR_DELIM .. "tab_local.lua"),
-	play_online = dofile(menupath .. DIR_DELIM .. "tab_online.lua")
-}
+-- === VOCOCRAFT: Load mobile or standard tabs ===
+local tabs = {}
+if VOCOCRAFT_MOBILE_UI then
+	tabs.local_game = dofile(menupath .. DIR_DELIM .. "vococraft" .. DIR_DELIM .. "tab_local.lua")
+	tabs.about = dofile(menupath .. DIR_DELIM .. "tab_about.lua")
+else
+	tabs.content = dofile(menupath .. DIR_DELIM .. "tab_content.lua")
+	tabs.about = dofile(menupath .. DIR_DELIM .. "tab_about.lua")
+	tabs.local_game = dofile(menupath .. DIR_DELIM .. "tab_local.lua")
+	tabs.play_online = dofile(menupath .. DIR_DELIM .. "tab_online.lua")
+end
+-- === END VOCOCRAFT ===
 
 --------------------------------------------------------------------------------
 local function main_event_handler(tabview, event)
@@ -56,11 +86,12 @@ end
 
 --------------------------------------------------------------------------------
 local function init_globals()
-	-- Hide banner when entering main menu (including return from game)
-	if core.hide_banner then
+	-- === VOCOCRAFT: Hide banner on mobile ===
+	if VOCOCRAFT_MOBILE_UI and core.hide_banner then
 		core.hide_banner()
 	end
-	
+	-- === END VOCOCRAFT ===
+
 	-- Init gamedata
 	gamedata.worldindex = 0
 
@@ -88,8 +119,14 @@ local function init_globals()
 
 	tv_main:set_autosave_tab(true)
 	tv_main:add(tabs.local_game)
-	--tv_main:add(tabs.play_online)
-	--tv_main:add(tabs.content)
+
+	-- === VOCOCRAFT: Conditional tabs ===
+	if not VOCOCRAFT_MOBILE_UI then
+		tv_main:add(tabs.play_online)
+		tv_main:add(tabs.content)
+	end
+	-- === END VOCOCRAFT ===
+
 	tv_main:add(tabs.about)
 
 	tv_main:set_global_event_handler(main_event_handler)
@@ -100,18 +137,22 @@ local function init_globals()
 		tv_main:set_tab(last_tab)
 	end
 
-	tv_main:set_end_button({
-		icon = defaulttexturedir .. "settings_btn.png",
-		label = fgettext("Settings"),
-		name = "open_settings",
-		on_click = function(tabview)
-			local dlg = create_settings_dlg()
-			dlg:set_parent(tabview)
-			tabview:hide()
-			dlg:show()
-			return true
-		end,
-	})
+	-- === VOCOCRAFT: No end button for mobile UI ===
+	if not VOCOCRAFT_MOBILE_UI then
+		tv_main:set_end_button({
+			icon = defaulttexturedir .. "settings_btn.png",
+			label = fgettext("Settings"),
+			name = "open_settings",
+			on_click = function(tabview)
+				local dlg = create_settings_dlg()
+				dlg:set_parent(tabview)
+				tabview:hide()
+				dlg:show()
+				return true
+			end,
+		})
+	end
+	-- === END VOCOCRAFT ===
 
 	ui.set_default("maintab")
 	tv_main:show()

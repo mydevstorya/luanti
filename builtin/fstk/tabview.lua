@@ -53,6 +53,11 @@ local function get_formspec(self)
 
 	local content, prepend = tab.get_formspec(self, tab.name, tab.tabdata, tab.tabsize)
 
+	-- If prepend is exactly true, the tab provides complete formspec (mobile UI mode)
+	if prepend == true then
+		return content
+	end
+
 	local TOUCH_GUI = core.settings:get_bool("touch_gui")
 
 	local orig_tsize = tab.tabsize or { width = self.width, height = self.height }
