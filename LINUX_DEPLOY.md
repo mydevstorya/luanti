@@ -130,15 +130,46 @@ sudo make install
 
 ## 🖥️ Running a Dedicated Server
 
-cd bin/server
-chmod +x start_server.sh
-./start_server.sh
-
-### Quick Start
+After building, the server is launched from `dist_linux/bin/vococraft-server/`:
 
 ```bash
-# From the build directory
-./bin/luanti --server --world ./worlds/myworld --gameid vococraft
+cd /root/luanti/dist_linux/bin/vococraft-server
+
+# Fix Windows line endings (required if copied from Windows!)
+sed -i '1s/^\xEF\xBB\xBF//' start_server.sh
+sed -i 's/\r$//' start_server.sh
+
+# Make executable
+chmod +x start_server.sh
+
+# Run
+./start_server.sh
+```
+
+### Server Structure
+
+```
+/root/luanti/
+├── dist_linux/              # Build output folder
+│   ├── bin/
+│   │   ├── minetest            # Client executable
+│   │   ├── minetestserver      # Server executable
+│   │   └── vococraft-server/   # Server config folder
+│   │       ├── start_server.sh
+│   │       └── minetest.conf
+│   ├── games/
+│   │   └── vococraft/
+│   ├── worlds/
+│   └── ...
+└── ...
+```
+
+### Quick Start (without script)
+
+```bash
+# From dist_linux folder
+cd /root/luanti/dist_linux
+./bin/minetestserver --gameid vococraft --world ./worlds/myworld
 ```
 
 ### Creating a systemd Service
@@ -154,9 +185,9 @@ After=network.target
 
 [Service]
 Type=simple
-User=vococraft
-WorkingDirectory=/opt/vococraft
-ExecStart=/opt/vococraft/bin/luanti --server --config /opt/vococraft/minetest.conf
+User=root
+WorkingDirectory=/root/luanti/dist_linux/bin/vococraft-server
+ExecStart=/root/luanti/dist_linux/bin/vococraft-server/start_server.sh
 Restart=on-failure
 RestartSec=5
 
@@ -165,12 +196,6 @@ WantedBy=multi-user.target
 ```
 
 ```bash
-# Create service user
-sudo useradd -r -s /bin/false vococraft
-
-# Set directory permissions
-sudo chown -R vococraft:vococraft /opt/vococraft
-
 # Enable and start the service
 sudo systemctl daemon-reload
 sudo systemctl enable vococraft
@@ -182,6 +207,9 @@ sudo systemctl status vococraft
 # View logs
 sudo journalctl -u vococraft -f
 ```
+
+sudo systemctl daemon-reload
+sudo systemctl restart vococraft
 
 ---
 
