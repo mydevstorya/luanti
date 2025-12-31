@@ -128,13 +128,13 @@ local function get_formspec(tabview, name, tabdata)
 		table.insert(fs, "box[0.5," .. (tab_y + TAB_H - 0.06) .. ";" .. (tab_w - 1) .. ",0.05;#4CAF50]")
 	end
 	table.insert(fs, "style_type[button;font_size=*1.0]")
-	table.insert(fs, "button[0," .. tab_y .. ";" .. tab_w .. "," .. TAB_H .. ";subtab_worlds;Worlds (" .. world_count .. ")]")
+	table.insert(fs, "button[0," .. tab_y .. ";" .. tab_w .. "," .. TAB_H .. ";subtab_worlds;" .. fgettext("Worlds") .. " (" .. world_count .. ")]")
 
 	if current_subtab == "servers" then
 		table.insert(fs, "box[" .. tab_w .. "," .. tab_y .. ";" .. tab_w .. "," .. TAB_H .. ";#3d3d3d]")
 		table.insert(fs, "box[" .. (tab_w + 0.5) .. "," .. (tab_y + TAB_H - 0.06) .. ";" .. (tab_w - 1) .. ",0.05;#4CAF50]")
 	end
-	table.insert(fs, "button[" .. tab_w .. "," .. tab_y .. ";" .. tab_w .. "," .. TAB_H .. ";subtab_servers;Servers]")
+	table.insert(fs, "button[" .. tab_w .. "," .. tab_y .. ";" .. tab_w .. "," .. TAB_H .. ";subtab_servers;" .. fgettext("Servers") .. "]")
 
 	-- ============ CONTENT AREA ============
 	table.insert(fs, "box[0," .. CONTENT_Y .. ";" .. W .. "," .. CONTENT_H .. ";#3a3a3a]")

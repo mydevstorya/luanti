@@ -7789,6 +7789,14 @@ msgstr "ЗАПУСТИТЬ"
 msgid "PLAY"
 msgstr "ИГРАТЬ"
 
+#: builtin/mainmenu/vococraft/tab_local.lua
+msgid "Worlds"
+msgstr "Миры"
+
+#: builtin/mainmenu/vococraft/tab_local.lua
+msgid "Servers"
+msgstr "Серверы"
+
 #: builtin/mainmenu/vococraft/tab_mobile_online.lua
 msgid "Loading servers..."
 msgstr "Загрузка серверов..."
