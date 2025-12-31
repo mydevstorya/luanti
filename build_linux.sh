@@ -108,9 +108,59 @@ install_local() {
     cd "$BUILD_DIR"
     make install
     
-    # Copy game data
+    # Create required directories
+    mkdir -p "$INSTALL_DIR/games"
+    mkdir -p "$INSTALL_DIR/worlds"
+    mkdir -p "$INSTALL_DIR/mods"
+    
+    # Copy game data (VocoCraft)
     if [ -d "$SCRIPT_DIR/games/vococraft" ]; then
+        echo "Copying VocoCraft game..."
+        rm -rf "$INSTALL_DIR/games/vococraft"
         cp -r "$SCRIPT_DIR/games/vococraft" "$INSTALL_DIR/games/"
+        echo -e "${GREEN}✓ VocoCraft game copied${NC}"
+    else
+        echo -e "${RED}WARNING: games/vococraft not found!${NC}"
+    fi
+    
+    # Copy builtin (required for menu)
+    if [ -d "$SCRIPT_DIR/builtin" ]; then
+        echo "Copying builtin..."
+        rm -rf "$INSTALL_DIR/builtin"
+        cp -r "$SCRIPT_DIR/builtin" "$INSTALL_DIR/"
+    fi
+    
+    # Copy textures
+    if [ -d "$SCRIPT_DIR/textures" ]; then
+        echo "Copying textures..."
+        rm -rf "$INSTALL_DIR/textures"
+        cp -r "$SCRIPT_DIR/textures" "$INSTALL_DIR/"
+    fi
+    
+    # Copy fonts
+    if [ -d "$SCRIPT_DIR/fonts" ]; then
+        echo "Copying fonts..."
+        rm -rf "$INSTALL_DIR/fonts"
+        cp -r "$SCRIPT_DIR/fonts" "$INSTALL_DIR/"
+    fi
+    
+    # Copy locale
+    if [ -d "$SCRIPT_DIR/locale" ]; then
+        echo "Copying locale..."
+        rm -rf "$INSTALL_DIR/locale"
+        cp -r "$SCRIPT_DIR/locale" "$INSTALL_DIR/"
+    fi
+    
+    # Copy client shaders
+    if [ -d "$SCRIPT_DIR/client" ]; then
+        echo "Copying client data..."
+        rm -rf "$INSTALL_DIR/client"
+        cp -r "$SCRIPT_DIR/client" "$INSTALL_DIR/"
+    fi
+    
+    # Copy default config if exists
+    if [ -f "$SCRIPT_DIR/minetest.conf.example" ]; then
+        cp "$SCRIPT_DIR/minetest.conf.example" "$INSTALL_DIR/"
     fi
     
     echo -e "${GREEN}✓ Installation complete${NC}"
