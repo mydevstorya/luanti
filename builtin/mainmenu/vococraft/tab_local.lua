@@ -427,15 +427,19 @@ local function main_button_handler(this, fields, name, tabdata)
 			gamedata.singleplayer = true
 		end
 
-		-- Send analytics event for game start (Android only)
-		if core.send_analytics_event and world then
-			local params = "world=" .. core.formspec_escape(world.name)
+		-- Send analytics events for game start (Android only)
+		if core.send_analytics_event then
+			-- Local server connection event
+			core.send_analytics_event("connect_to_local_server", "")
+			
+			-- Game started event with details
+			local params = ""
 			if game_obj then
-				params = params .. ",game=" .. game_obj.id
+				params = "game=" .. game_obj.id
 			end
 			params = params .. ",creative=" .. tostring(core.settings:get_bool("creative_mode"))
 			params = params .. ",damage=" .. tostring(core.settings:get_bool("enable_damage"))
-			params = params .. ",server=" .. tostring(core.settings:get_bool("enable_server"))
+			params = params .. ",host=" .. tostring(core.settings:get_bool("enable_server"))
 			core.log("info", "[Analytics] Sending game_started event: " .. params)
 			core.send_analytics_event("game_started", params)
 		end

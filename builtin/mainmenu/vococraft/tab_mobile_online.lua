@@ -383,6 +383,14 @@ local function handle_buttons(fields, tabdata)
 				gamedata.serverdescription = server.description
 
 				set_selected_server(server)
+				
+				-- Send analytics event for server connection
+				if core.send_analytics_event then
+					local params = "address=" .. server.address
+					params = params .. ",name=" .. core.formspec_escape(server.name or "")
+					core.send_analytics_event("connect_to_remote_server", params)
+				end
+				
 				core.start()
 				return true
 			end
@@ -422,6 +430,13 @@ local function handle_buttons(fields, tabdata)
 			
 			core.settings:set("address", gamedata.address)
 			core.settings:set("remote_port", gamedata.port)
+			
+			-- Send analytics event for server connection
+			if core.send_analytics_event then
+				local params = "address=" .. server.address
+				params = params .. ",name=" .. core.formspec_escape(server.name or "")
+				core.send_analytics_event("connect_to_remote_server", params)
+			end
 			
 			core.start()
 		end

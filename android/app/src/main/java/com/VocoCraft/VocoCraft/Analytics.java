@@ -178,8 +178,8 @@ public class Analytics {
         }
         
         Map<String, Object> params = new HashMap<>();
-        params.put("world_name", worldName);
-        params.put("game_id", gameId);
+        // Don't send world_name for privacy
+        //params.put("game_id", gameId);
         params.put("mapgen", mapgen);
         
         Log.i(TAG, "Sending world_created event to AppMetrica...");
@@ -213,7 +213,6 @@ public class Analytics {
         Map<String, Object> params = new HashMap<>();
         params.put("action", action);
         params.put("ad_unit_id", details != null && details.contains("|") ? details.split("\\|")[0] : details);
-        params.put("timestamp", System.currentTimeMillis());
         
         // Parse additional details if present (format: "ad_unit_id|error_code|description")
         if (details != null && details.contains("|")) {
