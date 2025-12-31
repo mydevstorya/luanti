@@ -21,6 +21,7 @@ sudo apt install -y \
     libsdl2-dev libopenal-dev libvorbis-dev \
     libfreetype-dev libsqlite3-dev libcurl4-openssl-dev \
     libluajit-5.1-dev libgmp-dev libjsoncpp-dev \
+    libssl-dev libzstd-dev \
     zlib1g-dev gettext
 ```
 
@@ -33,6 +34,7 @@ sudo dnf install -y \
     SDL2-devel openal-devel libvorbis-devel \
     freetype-devel sqlite-devel libcurl-devel \
     luajit-devel gmp-devel jsoncpp-devel \
+    openssl-devel libzstd-devel \
     zlib-devel gettext
 ```
 
@@ -43,7 +45,7 @@ sudo pacman -S --noconfirm \
     git base-devel cmake \
     libpng libjpeg mesa sdl2 \
     openal libvorbis freetype2 sqlite curl \
-    luajit gmp jsoncpp gettext
+    luajit gmp jsoncpp openssl zstd gettext
 ```
 
 ### openSUSE
@@ -55,6 +57,7 @@ sudo zypper install -y \
     SDL2-devel openal-soft-devel libvorbis-devel \
     freetype2-devel sqlite3-devel libcurl-devel \
     luajit-devel gmp-devel jsoncpp-devel \
+    libopenssl-devel libzstd-devel \
     zlib-devel gettext-tools
 ```
 
