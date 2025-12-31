@@ -7806,8 +7806,8 @@ msgid "No LAN servers found"
 msgstr "LAN серверы не найдены"
 
 #: builtin/mainmenu/vococraft/tab_mobile_online.lua
-msgid "Coming soon..."
-msgstr "Скоро..."
+msgid "No servers found. Try refreshing."
+msgstr "Серверы не найдены. Попробуйте обновить."
 
 #: builtin/mainmenu/vococraft/tab_mobile_online.lua
 msgid "Players"

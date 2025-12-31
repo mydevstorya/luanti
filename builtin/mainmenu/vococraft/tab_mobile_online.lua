@@ -207,10 +207,8 @@ local function get_formspec(W, H, CONTENT_Y, CONTENT_H, tabdata)
 			rows[#rows + 1] = "#666666," .. fgettext("No LAN servers found") .. ",,"
 		end
 		
-		-- Public servers section (header only, servers hidden for VocoCraft)
+		-- Public servers section
 		rows[#rows + 1] = "#4bdd42,● " .. fgettext("Public Servers") .. ",,"
-		--[[ VocoCraft: Public servers temporarily hidden
-		     TODO: Add VocoCraft official server here
 		if #servers.public > 0 then
 			for _, server in ipairs(servers.public) do
 				tabdata.lookup[#rows + 1] = server
@@ -220,9 +218,9 @@ local function get_formspec(W, H, CONTENT_Y, CONTENT_H, tabdata)
 				rows[#rows + 1] = "#ffffff," .. core.formspec_escape(name:sub(1,35)) .. 
 					",#ffffff," .. clients
 			end
+		else
+			rows[#rows + 1] = "#666666," .. fgettext("No servers found. Try refreshing.") .. ",,"
 		end
-		--]]
-		rows[#rows + 1] = "#666666," .. fgettext("Coming soon...") .. ",,"
 		
 		--[[ VocoCraft: Incompatible servers hidden for cleaner mobile UI
 		if #servers.incompatible > 0 then
