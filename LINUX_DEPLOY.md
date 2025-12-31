@@ -130,6 +130,10 @@ sudo make install
 
 ## 🖥️ Running a Dedicated Server
 
+cd bin/server
+chmod +x start_server.sh
+./start_server.sh
+
 ### Quick Start
 
 ```bash

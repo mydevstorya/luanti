@@ -297,12 +297,12 @@ local function get_formspec(W, H, CONTENT_Y, CONTENT_H, tabdata)
 		if selected_server.clients and selected_server.clients_max then
 			table.insert(fs, "label[" .. field_x .. "," .. y .. ";" .. 
 				fgettext("Players") .. ": " .. selected_server.clients .. "/" .. selected_server.clients_max .. "]")
-			y = y + 0.5
+			y = y + 0.45
 		end
 
 		-- Description
 		if selected_server.description and selected_server.description ~= "" then
-			y = y + 0.2
+			--y = y + 0.2
 			table.insert(fs, "textarea[" .. field_x .. "," .. y .. ";" .. field_w .. ",1.8;;;" .. 
 				core.formspec_escape(selected_server.description) .. "]")
 		end

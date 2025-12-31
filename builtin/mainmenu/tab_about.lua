@@ -108,6 +108,10 @@ return {
 			fs = fs .. "button[0.5,5.1;4.5,0.8;userdata;" .. fgettext("Open User Data Directory") .. "]"
 		end
 
+		-- Back button
+		fs = fs .. "style[btn_back;bgcolor=#555555]"
+		fs = fs .. "button[0.5,7.5;4.5,0.8;btn_back;" .. fgettext("Back") .. "]"
+
 		return fs
 	end,
 
@@ -119,6 +123,15 @@ return {
 
 		if fields.userdata then
 			core.open_dir(core.get_user_path())
+		end
+
+		-- Back button - return to main tab
+		if fields.btn_back then
+			local maintab = ui.find_by_name("maintab")
+			if maintab then
+				maintab:set_tab("local")
+			end
+			return true
 		end
 	end,
 

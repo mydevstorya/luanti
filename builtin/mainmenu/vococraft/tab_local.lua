@@ -89,7 +89,7 @@ local function get_formspec(tabview, name, tabdata)
 	local W = 16
 	local H = 9.5
 
-	local HEADER_H = 0.15
+	local HEADER_H = 0.7
 	local TAB_H = 0.9
 	local CONTENT_Y = HEADER_H + TAB_H
 	local CONTENT_H = H - CONTENT_Y
@@ -101,8 +101,19 @@ local function get_formspec(tabview, name, tabdata)
 	table.insert(fs, "bgcolor[#313131;both]")
 	table.insert(fs, "box[0,0;" .. W .. "," .. H .. ";#313131]")
 
-	-- ============ HEADER (thin spacer) ============
+	-- ============ HEADER with Settings & About buttons ============
 	table.insert(fs, "box[0,0;" .. W .. "," .. HEADER_H .. ";#1e1e1e]")
+	
+	-- Settings button (left side of header)
+	local hdr_btn_w = 1.8
+	local hdr_btn_h = 0.5
+	local hdr_btn_y = (HEADER_H - hdr_btn_h) / 2
+	table.insert(fs, "style[btn_settings;bgcolor=#444444;font_size=*0.9]")
+	table.insert(fs, "button[0.2," .. hdr_btn_y .. ";" .. hdr_btn_w .. "," .. hdr_btn_h .. ";btn_settings;" .. fgettext("Settings") .. "]")
+	
+	-- About button (right side of header)
+	table.insert(fs, "style[btn_about;bgcolor=#444444;font_size=*0.9]")
+	table.insert(fs, "button[" .. (W - hdr_btn_w - 0.2) .. "," .. hdr_btn_y .. ";" .. hdr_btn_w .. "," .. hdr_btn_h .. ";btn_about;" .. fgettext("About") .. "]")
 
 	-- ============ TAB BAR ============
 	local tab_y = HEADER_H
@@ -285,6 +296,24 @@ end
 --------------------------------------------------------------------------------
 local function main_button_handler(this, fields, name, tabdata)
 	assert(name == "local")
+
+	-- Settings button handler
+	if fields.btn_settings then
+		local dlg = create_settings_dlg()
+		dlg:set_parent(this)
+		this:hide()
+		dlg:show()
+		return true
+	end
+
+	-- About button handler
+	if fields.btn_about then
+		local maintab = ui.find_by_name("maintab")
+		if maintab then
+			maintab:set_tab("about")
+		end
+		return true
+	end
 
 	if fields.subtab_worlds then
 		current_subtab = "worlds"
