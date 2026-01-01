@@ -723,6 +723,14 @@ msgstr "Мир:"
 msgid "enabled"
 msgstr "включено"
 
+#: builtin/mainmenu/dlg_config_world.lua
+msgid "Mod active"
+msgstr "Мод активен"
+
+#: builtin/mainmenu/dlg_config_world.lua
+msgid "No external mods installed"
+msgstr "Внешние моды не установлены"
+
 #: builtin/mainmenu/dlg_create_world.lua
 msgid "A world named \"$1\" already exists"
 msgstr "Мир с названием «$1» уже существует"

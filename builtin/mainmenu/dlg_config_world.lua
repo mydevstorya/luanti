@@ -6,6 +6,65 @@
 
 local enabled_all = false
 
+-- Render mod list for textlist (only external mods)
+-- Returns: formatted string for textlist, filtered_to_original index map, external_mods list
+local function render_modlist_textlist(all_mods, with_error)
+	local retval = {}
+	local filtered_to_original = {}
+	local external_mods = {}
+	
+	for i, mod in ipairs(all_mods) do
+		-- Skip game content - only show external mods
+		if not mod.is_game_content and mod.type ~= "game" then
+			table.insert(external_mods, mod)
+			table.insert(filtered_to_original, i)
+			
+			local color = mt_color_grey
+			local prefix = ""
+			local has_error = with_error and with_error[mod.virtual_path or mod.path]
+			
+			if has_error then
+				if has_error.type == "error" then
+					color = mt_color_red
+				else
+					color = mt_color_orange
+				end
+			elseif mod.is_modpack then
+				-- Check if modpack is entirely enabled
+				local entirely_enabled = true
+				for _, m in ipairs(all_mods) do
+					if m.modpack == mod.name and not m.enabled then
+						entirely_enabled = false
+						break
+					end
+				end
+				if entirely_enabled then
+					color = mt_color_dark_green
+					prefix = "☑ "
+				else
+					prefix = "☐ "
+				end
+			elseif mod.enabled then
+				color = mt_color_green
+				prefix = "☑ "
+			else
+				prefix = "☐ "
+			end
+			
+			-- Indent for modpack contents
+			local indent = ""
+			if mod.modpack ~= nil then
+				indent = "   "
+			end
+			
+			local display_name = mod.list_title or mod.list_name or mod.title or mod.name
+			retval[#retval + 1] = color .. indent .. prefix .. core.formspec_escape(display_name)
+		end
+	end
+	
+	return table.concat(retval, ","), filtered_to_original, external_mods
+end
+
 local function modname_valid(name)
 	return not name:find("[^a-z0-9_]")
 end
@@ -111,86 +170,93 @@ local function get_formspec(data)
 	local mod = all_mods[data.selected_mod] or {name = ""}
 
 	local retval =
-		"size[11.5,7.5,true]" ..
+		"size[12,7.5,true]" ..
 		"label[0.5,0;" .. fgettext("World:") .. "]" ..
 		"label[1.75,0;" .. core.formspec_escape(data.worldspec.name) .. "]"
 
-	if mod.is_modpack or mod.type == "game" then
-		local info = core.formspec_escape(
-			core.get_content_info(mod.path).description)
-		if info == "" then
-			if mod.is_modpack then
+	-- Only show mod info if it's an external mod (not game content)
+	if mod.name ~= "" and not mod.is_game_content and mod.type ~= "game" then
+		if mod.is_modpack then
+			-- Show modpack description
+			local info = core.formspec_escape(
+				core.get_content_info(mod.path).description)
+			if info == "" then
 				info = fgettext("No modpack description provided.")
-			else
-				info = fgettext("No game description provided.")
 			end
-		end
-		retval = retval ..
-			"textarea[0.25,0.7;5.75,7.2;;" .. info .. ";]"
-	else
-		local hard_deps, soft_deps = pkgmgr.get_dependencies(mod.path)
-
-		-- Add error messages to dep lists
-		if mod.enabled or mod.is_game_content then
-			for i, dep_name in ipairs(hard_deps) do
-				local dep = enabled_mods_by_name[dep_name]
-				if not dep then
-					hard_deps[i] = mt_color_red .. dep_name .. " " .. fgettext("(Unsatisfied)")
-				elseif with_error[dep.virtual_path] then
-					hard_deps[i] = mt_color_orange .. dep_name .. " " .. fgettext("(Enabled, has error)")
-				else
-					hard_deps[i] = mt_color_green .. dep_name
-				end
-			end
-			for i, dep_name in ipairs(soft_deps) do
-				local dep = enabled_mods_by_name[dep_name]
-				if dep and with_error[dep.virtual_path] then
-					soft_deps[i] = mt_color_orange .. dep_name .. " " .. fgettext("(Enabled, has error)")
-				elseif dep then
-					soft_deps[i] = mt_color_green .. dep_name
-				end
-			end
-		end
-
-		local hard_deps_str = table.concat(hard_deps, ",")
-		local soft_deps_str = table.concat(soft_deps, ",")
-
-		retval = retval ..
-			"label[0,0.7;" .. fgettext("Mod:") .. "]" ..
-			"label[0.75,0.7;" .. mod.name .. "]"
-
-		if hard_deps_str == "" then
-			if soft_deps_str == "" then
-				retval = retval ..
-					"label[0,1.25;" ..
-					fgettext("No (optional) dependencies") .. "]"
-			else
-				retval = retval ..
-					"label[0,1.25;" .. fgettext("No hard dependencies") ..
-					"]" ..
-					"label[0,1.75;" .. fgettext("Optional dependencies:") ..
-					"]" ..
-					"textlist[0,2.25;5,4;world_config_optdepends;" ..
-					soft_deps_str .. ";0]"
-			end
+			retval = retval ..
+				"label[0,0.7;" .. fgettext("Modpack:") .. "]" ..
+				"label[1.5,0.7;" .. core.formspec_escape(mod.name) .. "]" ..
+				"textarea[0.25,1.25;5.25,5.5;;" .. info .. ";]"
 		else
-			if soft_deps_str == "" then
-				retval = retval ..
-					"label[0,1.25;" .. fgettext("Dependencies:") .. "]" ..
-					"textlist[0,1.75;5,4;world_config_depends;" ..
-					hard_deps_str .. ";0]" ..
-					"label[0,6;" .. fgettext("No optional dependencies") .. "]"
+			-- Show mod dependencies
+			local hard_deps, soft_deps = pkgmgr.get_dependencies(mod.path)
+
+			-- Add error messages to dep lists
+			if mod.enabled then
+				for i, dep_name in ipairs(hard_deps) do
+					local dep = enabled_mods_by_name[dep_name]
+					if not dep then
+						hard_deps[i] = mt_color_red .. dep_name .. " " .. fgettext("(Unsatisfied)")
+					elseif with_error[dep.virtual_path] then
+						hard_deps[i] = mt_color_orange .. dep_name .. " " .. fgettext("(Enabled, has error)")
+					else
+						hard_deps[i] = mt_color_green .. dep_name
+					end
+				end
+				for i, dep_name in ipairs(soft_deps) do
+					local dep = enabled_mods_by_name[dep_name]
+					if dep and with_error[dep.virtual_path] then
+						soft_deps[i] = mt_color_orange .. dep_name .. " " .. fgettext("(Enabled, has error)")
+					elseif dep then
+						soft_deps[i] = mt_color_green .. dep_name
+					end
+				end
+			end
+
+			local hard_deps_str = table.concat(hard_deps, ",")
+			local soft_deps_str = table.concat(soft_deps, ",")
+
+			retval = retval ..
+				"label[0,0.7;" .. fgettext("Mod:") .. "]" ..
+				"label[0.75,0.7;" .. core.formspec_escape(mod.name) .. "]"
+
+			if hard_deps_str == "" then
+				if soft_deps_str == "" then
+					retval = retval ..
+						"label[0,1.25;" ..
+						fgettext("No (optional) dependencies") .. "]"
+				else
+					retval = retval ..
+						"label[0,1.25;" .. fgettext("No hard dependencies") ..
+						"]" ..
+						"label[0,1.75;" .. fgettext("Optional dependencies:") ..
+						"]" ..
+						"textlist[0,2.25;5,4;world_config_optdepends;" ..
+						soft_deps_str .. ";0]"
+				end
 			else
-				retval = retval ..
-					"label[0,1.25;" .. fgettext("Dependencies:") .. "]" ..
-					"textlist[0,1.75;5,2.125;world_config_depends;" ..
-					hard_deps_str .. ";0]" ..
-					"label[0,3.9;" .. fgettext("Optional dependencies:") ..
-					"]" ..
-					"textlist[0,4.375;5,1.8;world_config_optdepends;" ..
-					soft_deps_str .. ";0]"
+				if soft_deps_str == "" then
+					retval = retval ..
+						"label[0,1.25;" .. fgettext("Dependencies:") .. "]" ..
+						"textlist[0,1.75;5,4;world_config_depends;" ..
+						hard_deps_str .. ";0]" ..
+						"label[0,6;" .. fgettext("No optional dependencies") .. "]"
+				else
+					retval = retval ..
+						"label[0,1.25;" .. fgettext("Dependencies:") .. "]" ..
+						"textlist[0,1.75;5,2.125;world_config_depends;" ..
+						hard_deps_str .. ";0]" ..
+						"label[0,3.9;" .. fgettext("Optional dependencies:") ..
+						"]" ..
+						"textlist[0,4.375;5,1.8;world_config_optdepends;" ..
+						soft_deps_str .. ";0]"
+				end
 			end
 		end
+	else
+		-- No mod selected or game content - show instruction
+		retval = retval ..
+			"label[0,1;" .. fgettext("Select a mod from the list") .. "]"
 	end
 
 	retval = retval ..
@@ -198,73 +264,112 @@ local function get_formspec(data)
 		fgettext("Save") .. "]" ..
 		"button[5.75,7;2.5,0.5;btn_config_world_cancel;" ..
 		fgettext("Cancel") .. "]" ..
-		"button[9,7;2.5,0.5;btn_config_world_cdb;" ..
+		"button[9.25,7;2.5,0.5;btn_config_world_cdb;" ..
 		fgettext("Find More Mods") .. "]"
 
-	if mod.name ~= "" and not mod.is_game_content then
-		if mod.is_modpack then
-			if pkgmgr.is_modpack_entirely_enabled(data, mod.name) then
-				retval = retval ..
-					"button[5.5,0.125;3,0.5;btn_mp_disable;" ..
-					fgettext("Disable modpack") .. "]"
-			else
-				retval = retval ..
-					"button[5.5,0.125;3,0.5;btn_mp_enable;" ..
-					fgettext("Enable modpack") .. "]"
-			end
-		else
-			retval = retval ..
-				"checkbox[5.5,-0.125;cb_mod_enable;" .. fgettext("enabled") ..
-				";" .. tostring(mod.enabled) .. "]"
-		end
-	end
+	-- Enable/Disable all buttons
 	if enabled_all then
 		retval = retval ..
-			"button[8.95,0.125;2.5,0.5;btn_disable_all_mods;" ..
+			"button[9.55,0.125;2.5,0.5;btn_disable_all_mods;" ..
 			fgettext("Disable all") .. "]"
 	else
 		retval = retval ..
-			"button[8.95,0.125;2.5,0.5;btn_enable_all_mods;" ..
+			"button[9.55,0.125;2.5,0.5;btn_enable_all_mods;" ..
 			fgettext("Enable all") .. "]"
 	end
 
-	local use_technical_names = core.settings:get_bool("show_technical_names")
-
-	return retval ..
-		"tablecolumns[color;tree;image,align=inline,width=1.5,0=" .. core.formspec_escape(defaulttexturedir .. "blank.png") ..
-			",1=" .. core.formspec_escape(defaulttexturedir .. "checkbox_16.png") ..
-			",2=" .. core.formspec_escape(defaulttexturedir .. "error_icon_orange.png") ..
-			",3=" .. core.formspec_escape(defaulttexturedir .. "error_icon_red.png") .. ";text]" ..
-		"table[5.5,0.75;5.75,6;world_config_modlist;" ..
-		pkgmgr.render_packagelist(data.list, use_technical_names, with_error) .. ";" .. data.selected_mod .."]"
+	-- Render mod list using textlist with large font (like worlds)
+	local modlist_str, filtered_to_original, external_mods = render_modlist_textlist(all_mods, with_error)
+	
+	-- Store for event handling
+	data.filtered_to_original = filtered_to_original
+	data.external_mods = external_mods
+	
+	-- Find selected index in filtered list
+	local filtered_selected = 1
+	for fi, oi in ipairs(filtered_to_original) do
+		if oi == data.selected_mod then
+			filtered_selected = fi
+			break
+		end
+	end
+	
+	if #external_mods == 0 then
+		retval = retval ..
+			"box[5.5,0.75;6,6;#1a1a1a]" ..
+			"label[7,3.5;" .. fgettext("No external mods installed") .. "]"
+	else
+		-- Textlist with large font (like worlds list)
+		retval = retval ..
+			"style[world_config_modlist;font_size=*1.6]" ..
+			"textlist[5.5,0.75;6,6;world_config_modlist;" .. modlist_str .. ";" .. filtered_selected .. "]"
+		
+		-- Checkbox with label for toggling selected mod (left side, below world name)
+		local selected_external_mod = external_mods[filtered_selected]
+		if selected_external_mod then
+			local is_enabled = selected_external_mod.enabled
+			if selected_external_mod.is_modpack then
+				is_enabled = pkgmgr.is_modpack_entirely_enabled(data, selected_external_mod.name)
+			end
+			local cb_img = is_enabled
+				and core.formspec_escape(defaulttexturedir .. "checkbox_64.png")
+				or core.formspec_escape(defaulttexturedir .. "blank.png")
+			
+			-- Checkbox on the left with "Mod active" label
+			retval = retval ..
+				"image_button[5.5,0.05;0.6,0.6;" .. cb_img .. ";btn_toggle_mod;]" ..
+				"label[6.15,0.1;" .. fgettext("Mod active") .. "]"
+		end
+	end
+	
+	return retval
 end
 
 local function handle_buttons(this, fields)
-	if fields.world_config_modlist then
-		local event = core.explode_table_event(fields.world_config_modlist)
-		this.data.selected_mod = event.row
-		core.settings:set("world_config_selected_mod", event.row)
-
-		if event.type == "DCL" then
-			pkgmgr.enable_mod(this)
+	-- Handle toggle button for selected mod
+	if fields.btn_toggle_mod then
+		local filtered_to_original = this.data.filtered_to_original
+		local external_mods = this.data.external_mods
+		if filtered_to_original and external_mods then
+			-- Find which filtered index is currently selected
+			local filtered_selected = 1
+			for fi, oi in ipairs(filtered_to_original) do
+				if oi == this.data.selected_mod then
+					filtered_selected = fi
+					break
+				end
+			end
+			local mod = external_mods[filtered_selected]
+			if mod then
+				if mod.is_modpack then
+					local entirely_enabled = pkgmgr.is_modpack_entirely_enabled(this.data, mod.name)
+					pkgmgr.enable_mod(this, not entirely_enabled)
+				else
+					pkgmgr.enable_mod(this, not mod.enabled)
+				end
+			end
 		end
-
+		return true
+	end
+	
+	-- Handle textlist selection
+	if fields.world_config_modlist then
+		local event = core.explode_textlist_event(fields.world_config_modlist)
+		local filtered_to_original = this.data.filtered_to_original
+		if filtered_to_original and event.index > 0 and event.index <= #filtered_to_original then
+			this.data.selected_mod = filtered_to_original[event.index]
+			core.settings:set("world_config_selected_mod", this.data.selected_mod)
+			
+			-- Double-click toggles mod
+			if event.type == "DCL" then
+				pkgmgr.enable_mod(this)
+			end
+		end
 		return true
 	end
 
 	if fields.key_enter then
 		pkgmgr.enable_mod(this)
-		return true
-	end
-
-	if fields.cb_mod_enable ~= nil then
-		pkgmgr.enable_mod(this, core.is_yes(fields.cb_mod_enable))
-		return true
-	end
-
-	if fields.btn_mp_enable ~= nil or
-			fields.btn_mp_disable then
-		pkgmgr.enable_mod(this, fields.btn_mp_enable ~= nil)
 		return true
 	end
 

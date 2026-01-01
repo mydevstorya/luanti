@@ -263,13 +263,12 @@ local function get_formspec(tabview, name, tabdata)
 			table.insert(fs, "style[world_create;bgcolor=#2196F3;font_size=*1.1]")
 			table.insert(fs, "button[" .. field_x .. "," .. create_y .. ";" .. field_w .. ",0.65;world_create;" .. fgettext("Create World") .. "]")
 
-			-- Delete button - full width (More button hidden for now)
+			-- Delete and Mods buttons side by side
+			local small_btn_w = (field_w - 0.15) / 2
 			table.insert(fs, "style[world_delete;bgcolor=#555555;font_size=*1.0]")
-			table.insert(fs, "button[" .. field_x .. "," .. del_edit_y .. ";" .. field_w .. ",0.55;world_delete;" .. fgettext("Delete") .. "]")
-			-- TODO: Restore More button when mod support is added
-			-- local small_btn_w = (field_w - 0.15) / 2
-			-- table.insert(fs, "style[world_details;bgcolor=#555555;font_size=*1.0]")
-			-- table.insert(fs, "button[" .. (field_x + small_btn_w + 0.15) .. "," .. del_edit_y .. ";" .. small_btn_w .. ",0.55;world_details;" .. fgettext("More") .. "]")
+			table.insert(fs, "button[" .. field_x .. "," .. del_edit_y .. ";" .. small_btn_w .. ",0.55;world_delete;" .. fgettext("Delete") .. "]")
+			table.insert(fs, "style[world_details;bgcolor=#555555;font_size=*1.0]")
+			table.insert(fs, "button[" .. (field_x + small_btn_w + 0.15) .. "," .. del_edit_y .. ";" .. small_btn_w .. ",0.55;world_details;" .. fgettext("Mods") .. "]")
 
 		else
 			-- No world selected - centered text using styled button
@@ -514,9 +513,6 @@ local function main_button_handler(this, fields, name, tabdata)
 		end
 		return true
 	end
-
-	-- NOTE: world_configure (Edit button) is temporarily hidden
-	-- Will be restored when mod support is added
 end
 
 local function on_change(type)
