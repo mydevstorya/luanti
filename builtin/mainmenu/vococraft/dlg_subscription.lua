@@ -99,8 +99,14 @@ local function handle_subscription_buttons(this, fields)
 	end
 	
 	if fields.btn_subscribe then
+		-- Check if purchase already in progress
+		local info = vococraft_subscription.get_info()
+		if info.purchase_in_progress then
+			return true -- Ignore if already purchasing
+		end
+		
 		-- Attempt to purchase subscription
-		vococraft_subscription.purchase(function(success)
+		vococraft_subscription.purchase(function(success, error_msg)
 			if success then
 				core.log("action", "[Vococraft] Subscription purchased successfully")
 				this:delete()
@@ -117,7 +123,10 @@ local function handle_subscription_buttons(this, fields)
 					end
 				end
 			else
-				gamedata.errormessage = fgettext_ne("Failed to purchase subscription. Please try again.")
+				if error_msg and error_msg ~= "Покупка отменена" then
+					-- Show error only if it's not a user cancellation
+					gamedata.errormessage = fgettext_ne("Subscription purchase error") .. ": " .. error_msg
+				end
 			end
 			ui.update()
 		end)

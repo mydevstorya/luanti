@@ -98,6 +98,12 @@ local function init_globals()
 		core.hide_banner()
 	end
 	-- === END VOCOCRAFT ===
+	
+	-- === VOCOCRAFT: Initialize subscription system (RuStore Pay) ===
+	if vococraft_subscription and vococraft_subscription.init then
+		vococraft_subscription.init()
+	end
+	-- === END VOCOCRAFT ===
 
 	-- Init gamedata
 	gamedata.worldindex = 0

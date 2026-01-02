@@ -66,6 +66,33 @@ public class GameActivity extends SDLActivity {
 		
 		// Initialize Yandex Mobile Ads
 		YandexAds.init(this);
+		
+		// Initialize RuStore Pay SDK
+		RuStorePay.init(this);
+		
+		// Handle deeplink if activity started from payment app
+		if (savedInstanceState == null) {
+			handleRuStoreIntent(getIntent());
+		}
+	}
+	
+	@Override
+	protected void onNewIntent(Intent intent) {
+		super.onNewIntent(intent);
+		// Handle deeplink when returning from payment app
+		handleRuStoreIntent(intent);
+	}
+	
+	private void handleRuStoreIntent(Intent intent) {
+		if (intent == null) return;
+		
+		try {
+			// Pass to Kotlin wrapper which handles SDK calls
+			RuStorePay.onNewIntent(intent);
+			Log.d(TAG, "RuStore intent processed");
+		} catch (Exception e) {
+			Log.d(TAG, "No RuStore intent to process: " + e.getMessage());
+		}
 	}
 	
 	@Override
