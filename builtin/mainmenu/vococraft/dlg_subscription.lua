@@ -6,18 +6,17 @@
 
 local function get_subscription_formspec(data)
 	-- Check if purchase operation completed (for async operations)
-	if vococraft_subscription.purchase_in_progress then
-		local success, error_msg = vococraft_subscription.check_purchase_result()
-		if success ~= nil then
-			-- Operation completed
-			if success then
-				-- Purchase successful! Close this dialog
-				data.purchase_success = true
-			else
-				-- Purchase failed or cancelled
-				if error_msg and error_msg ~= "Покупка отменена" then
-					data.purchase_error = error_msg
-				end
+	-- Always check - even if purchase_in_progress is false, we might have a pending result
+	local success, error_msg = vococraft_subscription.check_purchase_result()
+	if success ~= nil then
+		-- Operation completed
+		if success then
+			-- Purchase successful! Close this dialog
+			data.purchase_success = true
+		else
+			-- Purchase failed or cancelled
+			if error_msg and error_msg ~= "Покупка отменена" then
+				data.purchase_error = error_msg
 			end
 		end
 	end
@@ -96,6 +95,13 @@ local function get_subscription_formspec(data)
 	-- Determine what price/period to show
 	local offer_price = ""
 	local offer_period = ""
+	
+	core.log("action", "[Vococraft Dialog] has_trial=" .. tostring(info.has_trial) ..
+		", trial_days=" .. tostring(info.trial_days) ..
+		", has_promo=" .. tostring(info.has_promo) ..
+		", promo_days=" .. tostring(info.promo_days) ..
+		", promo_price=" .. tostring(info.promo_price_formatted) ..
+		", monthly_price=" .. tostring(info.monthly_price_formatted))
 	
 	if info.has_trial and info.trial_days > 0 then
 		-- Free trial period

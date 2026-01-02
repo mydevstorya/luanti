@@ -5,6 +5,19 @@
 
 local mobile_online = dofile(core.get_mainmenu_path() .. DIR_DELIM .. "vococraft" .. DIR_DELIM .. "tab_mobile_online.lua")
 
+-- === VOCOCRAFT: Subscribe to subscription events to update UI ===
+if vococraft_subscription then
+	vococraft_subscription.add_listener(function(event_type, data)
+		core.log("action", "[Vococraft tab_local] Received event: " .. event_type)
+		if event_type == "state_changed" or event_type == "restore_complete" or event_type == "purchase_complete" then
+			-- Subscription state changed, update main menu UI
+			core.log("action", "[Vococraft tab_local] Updating UI due to subscription change")
+			ui.update()
+		end
+	end)
+end
+-- === END VOCOCRAFT ===
+
 local current_game, singleplayer_refresh_gamebar
 local valid_disabled_settings = {
 	["enable_damage"]=false,
@@ -86,6 +99,12 @@ end
 -- MOBILE UI FORMSPEC
 --------------------------------------------------------------------------------
 local function get_formspec(tabview, name, tabdata)
+	-- === VOCOCRAFT: Poll for async subscription results ===
+	if vococraft_subscription then
+		vococraft_subscription.poll_async_results()
+	end
+	-- === END VOCOCRAFT ===
+	
 	local W = 16
 	
 	-- === VOCOCRAFT: Increase height if premium button is shown ===

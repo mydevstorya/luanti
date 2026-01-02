@@ -32,8 +32,23 @@ vococraft_subscription = {
 	purchase_in_progress = false,
 	last_error = "",
 	
+	-- Restore flow state
+	restore_in_progress = false,
+	restore_callback = nil,
+	
+	-- Async polling state
+	poll_attempt = 0,
+	
+	-- Pending purchase result (set when operation completes, cleared when formspec reads it)
+	pending_purchase_success = nil,
+	pending_purchase_error = nil,
+	
 	-- Initialization flag
 	initialized = false,
+	
+	-- Event listeners for subscription state changes
+	-- Listeners are called when subscription state changes (purchase, restore, etc.)
+	listeners = {},
 	
 	-- Operation result constants (from Java)
 	RESULT_NONE = 0,
@@ -43,6 +58,40 @@ vococraft_subscription = {
 	RESULT_NO_INTERNET = 4,
 	RESULT_NOT_AVAILABLE = 5,
 }
+
+--- Register a listener for subscription state changes
+--- Listener will be called with (event_type, data) when state changes
+--- Event types: "state_changed", "product_info_loaded", "purchase_complete", "restore_complete"
+---@param listener function Callback function(event_type, data)
+---@return number listener_id ID to use for unregistering
+function vococraft_subscription.add_listener(listener)
+	local id = #vococraft_subscription.listeners + 1
+	vococraft_subscription.listeners[id] = listener
+	core.log("action", "[Vococraft Subscription] Added listener #" .. id)
+	return id
+end
+
+--- Unregister a listener
+---@param listener_id number ID returned by add_listener
+function vococraft_subscription.remove_listener(listener_id)
+	if vococraft_subscription.listeners[listener_id] then
+		vococraft_subscription.listeners[listener_id] = nil
+		core.log("action", "[Vococraft Subscription] Removed listener #" .. listener_id)
+	end
+end
+
+--- Notify all listeners of an event
+---@param event_type string Event type
+---@param data table|nil Optional event data
+local function notify_listeners(event_type, data)
+	core.log("action", "[Vococraft Subscription] Notifying listeners: " .. event_type)
+	for id, listener in pairs(vococraft_subscription.listeners) do
+		local ok, err = pcall(listener, event_type, data)
+		if not ok then
+			core.log("warning", "[Vococraft Subscription] Listener #" .. id .. " error: " .. tostring(err))
+		end
+	end
+end
 
 --- Check if we are running on Android
 ---@return boolean
@@ -73,10 +122,14 @@ function vococraft_subscription.init()
 			tostring(has_sub) .. ", expires=" .. tostring(vococraft_subscription.expiration_date))
 		
 		-- Then restore from server in background (async, will update cache)
+		vococraft_subscription.restore_in_progress = true
 		core.rustore_restore_purchases()
 		
 		-- Fetch current prices from RuStore (async)
 		core.rustore_fetch_product_info()
+		
+		-- Start async polling for results
+		vococraft_subscription.start_async_polling()
 		
 		-- Note: Prices will be loaded lazily when get_info() or update_product_info() is called
 	else
@@ -84,6 +137,55 @@ function vococraft_subscription.init()
 		vococraft_subscription.prices_loaded = true
 		core.log("action", "[Vococraft Subscription] PC mode, no prices available")
 	end
+end
+
+--- Start async polling for subscription restore results
+--- Uses core.handle_async with a delay to periodically check for results
+function vococraft_subscription.start_async_polling()
+	if not vococraft_subscription.is_android() then
+		return
+	end
+	
+	-- Only poll if we have pending async operations
+	if not vococraft_subscription.restore_in_progress and 
+	   vococraft_subscription.product_info_fetched then
+		core.log("action", "[Vococraft Subscription] No pending async operations, stopping poll")
+		return
+	end
+	
+	core.log("action", "[Vococraft Subscription] Starting async poll...")
+	
+	-- Use core.handle_async with a function that just sleeps/waits
+	-- The callback will be called on the main thread
+	core.handle_async(
+		function(param)
+			-- Small delay in async thread (busy wait since we can't sleep)
+			local start = os.clock()
+			while os.clock() - start < 0.5 do end -- ~500ms delay
+			return param
+		end,
+		{ attempt = (vococraft_subscription.poll_attempt or 0) + 1 },
+		function(result)
+			vococraft_subscription.poll_attempt = result.attempt
+			
+			-- Check for results
+			local any_completed = vococraft_subscription.poll_async_results()
+			
+			core.log("action", "[Vococraft Subscription] Poll #" .. result.attempt .. 
+				", restore_in_progress=" .. tostring(vococraft_subscription.restore_in_progress) ..
+				", product_fetched=" .. tostring(vococraft_subscription.product_info_fetched) ..
+				", subscribed=" .. tostring(vococraft_subscription.is_subscribed))
+			
+			-- Continue polling if still have pending operations (max 20 attempts = 10 seconds)
+			if result.attempt < 20 and 
+			   (vococraft_subscription.restore_in_progress or 
+			    not vococraft_subscription.product_info_fetched) then
+				vococraft_subscription.start_async_polling()
+			else
+				core.log("action", "[Vococraft Subscription] Async polling finished")
+			end
+		end
+	)
 end
 
 --- Update product info from RuStore if available (call this periodically or before showing UI)
@@ -116,6 +218,14 @@ function vococraft_subscription.update_product_info()
 			core.log("action", "  - Promo: " .. vococraft_subscription.promo_days .. " days (" .. 
 				vococraft_subscription.promo_price_formatted .. ")")
 		end
+		
+		-- Notify listeners that product info is now available
+		notify_listeners("product_info_loaded", {
+			monthly_price = vococraft_subscription.monthly_price_formatted,
+			trial_days = vococraft_subscription.trial_days,
+			promo_days = vococraft_subscription.promo_days,
+		})
+		
 		return true
 	end
 	
@@ -123,24 +233,44 @@ function vococraft_subscription.update_product_info()
 end
 
 --- Update subscription state from RuStore cache (call periodically)
+--- Returns true if state was updated
+---@return boolean state_changed
 function vococraft_subscription.update_subscription_state()
 	if not vococraft_subscription.is_android() then
-		return
+		return false
 	end
+	
+	local state_changed = false
 	
 	-- Check if operation completed
 	if not core.rustore_is_operation_in_progress() then
 		local result = core.rustore_get_last_operation_result()
 		if result == vococraft_subscription.RESULT_SUCCESS then
 			-- Refresh subscription state from cache
+			local old_subscribed = vococraft_subscription.is_subscribed
 			vococraft_subscription.is_subscribed = core.rustore_has_subscription()
 			vococraft_subscription.expiration_date = core.rustore_get_expiration_date()
+			
+			-- Check if state actually changed
+			if old_subscribed ~= vococraft_subscription.is_subscribed then
+				state_changed = true
+				core.log("action", "[Vococraft Subscription] State changed: " .. 
+					tostring(old_subscribed) .. " -> " .. tostring(vococraft_subscription.is_subscribed))
+				
+				-- Notify listeners
+				notify_listeners("state_changed", {
+					is_subscribed = vococraft_subscription.is_subscribed,
+					expiration_date = vococraft_subscription.expiration_date,
+				})
+			end
 		end
 		-- Clear the result so we don't process it again
 		if result ~= vococraft_subscription.RESULT_NONE then
 			core.rustore_clear_operation_result()
 		end
 	end
+	
+	return state_changed
 end
 
 --- Check if user has active subscription
@@ -222,6 +352,17 @@ end
 --- Returns nil if still in progress, true/false when complete
 ---@return boolean|nil success, string|nil error_message
 function vococraft_subscription.check_purchase_result()
+	-- Also check if we have a stored pending result (set before clearing purchase_in_progress)
+	if vococraft_subscription.pending_purchase_success then
+		vococraft_subscription.pending_purchase_success = nil
+		return true, nil
+	end
+	if vococraft_subscription.pending_purchase_error then
+		local err = vococraft_subscription.pending_purchase_error
+		vococraft_subscription.pending_purchase_error = nil
+		return false, err
+	end
+	
 	if not vococraft_subscription.purchase_in_progress then
 		return nil
 	end
@@ -246,16 +387,26 @@ function vococraft_subscription.check_purchase_result()
 	vococraft_subscription.purchase_callback = nil
 	
 	if result == vococraft_subscription.RESULT_SUCCESS then
-		-- Purchase successful!
+		-- Purchase successful! Store pending success for formspec to detect
+		vococraft_subscription.pending_purchase_success = true
 		vococraft_subscription.is_subscribed = core.rustore_has_subscription()
 		vococraft_subscription.expiration_date = core.rustore_get_expiration_date()
 		core.log("action", "[Vococraft Subscription] Purchase successful!")
+		
+		-- Notify listeners about successful purchase
+		notify_listeners("purchase_complete", {
+			success = true,
+			is_subscribed = vococraft_subscription.is_subscribed,
+			expiration_date = vococraft_subscription.expiration_date,
+		})
+		
 		if callback then
 			callback(true)
 		end
 		return true, nil
 	elseif result == vococraft_subscription.RESULT_CANCELLED then
 		core.log("action", "[Vococraft Subscription] Purchase cancelled by user")
+		-- Don't set pending error for cancellation - just silently close
 		if callback then
 			callback(false, "Покупка отменена")
 		end
@@ -263,6 +414,7 @@ function vococraft_subscription.check_purchase_result()
 	elseif result == vococraft_subscription.RESULT_NOT_AVAILABLE then
 		core.log("warning", "[Vococraft Subscription] Purchase not available: " .. error_msg)
 		local msg = error_msg ~= "" and error_msg or "Покупки недоступны"
+		vococraft_subscription.pending_purchase_error = msg
 		if callback then
 			callback(false, msg)
 		end
@@ -270,6 +422,7 @@ function vococraft_subscription.check_purchase_result()
 	else
 		core.log("warning", "[Vococraft Subscription] Purchase failed: " .. error_msg)
 		local msg = error_msg ~= "" and error_msg or "Ошибка покупки"
+		vococraft_subscription.pending_purchase_error = msg
 		if callback then
 			callback(false, msg)
 		end
@@ -328,8 +481,24 @@ function vococraft_subscription.check_restore_result()
 		vococraft_subscription.expiration_date = core.rustore_get_expiration_date()
 		
 		local found = vococraft_subscription.is_subscribed and not was_subscribed
-		core.log("action", "[Vococraft Subscription] Restore complete, found=" .. 
-			tostring(found) .. ", subscribed=" .. tostring(vococraft_subscription.is_subscribed))
+		core.log("action", "[Vococraft Subscription] Restore complete: was_subscribed=" .. 
+			tostring(was_subscribed) .. ", now_subscribed=" .. tostring(vococraft_subscription.is_subscribed) ..
+			", found=" .. tostring(found))
+		
+		-- Notify listeners about restore completion
+		notify_listeners("restore_complete", {
+			success = true,
+			found_subscription = found,
+			is_subscribed = vococraft_subscription.is_subscribed,
+			expiration_date = vococraft_subscription.expiration_date,
+		})
+		
+		-- ALWAYS notify state_changed after restore completes - UI should update
+		-- even if subscription state didn't change (e.g., to hide loading indicator)
+		notify_listeners("state_changed", {
+			is_subscribed = vococraft_subscription.is_subscribed,
+			expiration_date = vococraft_subscription.expiration_date,
+		})
 		
 		if callback then
 			callback(true, found)
@@ -352,6 +521,14 @@ function vococraft_subscription.get_info()
 	vococraft_subscription.update_product_info()
 	-- Also update subscription state
 	vococraft_subscription.update_subscription_state()
+	
+	-- Debug log for pricing info
+	core.log("action", "[Vococraft] get_info: promo_days=" .. tostring(vococraft_subscription.promo_days) ..
+		", promo_price=" .. tostring(vococraft_subscription.promo_price_formatted) ..
+		", trial_days=" .. tostring(vococraft_subscription.trial_days) ..
+		", trial_price=" .. tostring(vococraft_subscription.trial_price_formatted) ..
+		", monthly_price=" .. tostring(vococraft_subscription.monthly_price_formatted) ..
+		", product_info_fetched=" .. tostring(vococraft_subscription.product_info_fetched))
 	
 	return {
 		-- Prices from RuStore
@@ -396,6 +573,38 @@ function vococraft_subscription.clear_cache()
 	vococraft_subscription.is_subscribed = false
 	vococraft_subscription.expiration_date = 0
 	core.log("action", "[Vococraft Subscription] Cache cleared")
+end
+
+--- Poll async results and update state.
+--- This should be called periodically from UI (e.g., in formspec generation).
+--- It checks for completed async operations and notifies listeners.
+---@return boolean True if any async operation completed
+function vococraft_subscription.poll_async_results()
+	if not vococraft_subscription.is_android() then
+		return false
+	end
+	
+	local any_completed = false
+	
+	-- Check for restore completion
+	if vococraft_subscription.restore_in_progress then
+		local complete, success, found = vococraft_subscription.check_restore_result()
+		if complete then
+			any_completed = true
+		end
+	end
+	
+	-- Also check generic state updates
+	local state_changed = vococraft_subscription.update_subscription_state()
+	if state_changed then
+		any_completed = true
+	end
+	
+	-- Check for product info
+	local info_loaded = vococraft_subscription.update_product_info()
+	-- Note: update_product_info triggers event only once when loaded
+	
+	return any_completed
 end
 
 -- Initialize on load
