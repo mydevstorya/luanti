@@ -13,11 +13,22 @@
 		android:icon="@mipmap/ic_launcher"
 		android:label="@string/label"
 		android:resizeableActivity="false"
+		tools:replace="android:allowBackup,android:label"
 		tools:ignore="UnusedAttribute">
 
 		<meta-data
 			android:name="android.max_aspect"
 			android:value="3.0" />
+		
+		<!-- RuStore Pay SDK: Console Application ID -->
+		<meta-data
+			android:name="console_app_id_value"
+			android:value="@string/rustore_console_app_id" />
+		
+		<!-- RuStore Pay SDK: Deeplink scheme for payment return -->
+		<meta-data
+			android:name="sdk_pay_scheme_value"
+			android:value="com.VocoCraft.VocoCraft" />
 
 		<activity
 			android:name=".MainActivity"
@@ -43,6 +54,13 @@
 			android:exported="true">
 			<intent-filter>
 				<action android:name="android.intent.action.MAIN" />
+			</intent-filter>
+			<!-- RuStore Pay SDK: Deeplink intent filter -->
+			<intent-filter>
+				<action android:name="android.intent.action.VIEW" />
+				<category android:name="android.intent.category.DEFAULT" />
+				<category android:name="android.intent.category.BROWSABLE" />
+				<data android:scheme="com.VocoCraft.VocoCraft" />
 			</intent-filter>
 		</activity>
 

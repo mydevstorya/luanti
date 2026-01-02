@@ -3,6 +3,10 @@
 # Keep our own classes
 -keep class com.VocoCraft.VocoCraft.** { *; }
 
+# RuStore Pay SDK
+-keep class ru.rustore.sdk.** { *; }
+-dontwarn ru.rustore.sdk.**
+
 # Yandex Mobile Ads SDK
 -keep class com.yandex.mobile.ads.** { *; }
 -dontwarn com.yandex.mobile.ads.**

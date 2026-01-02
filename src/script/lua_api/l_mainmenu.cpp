@@ -1162,6 +1162,184 @@ int ModApiMainMenu::l_clear_lan_servers(lua_State *L)
 }
 
 /******************************************************************************/
+// RuStore Pay SDK functions
+/******************************************************************************/
+
+int ModApiMainMenu::l_rustore_has_subscription(lua_State *L)
+{
+#ifdef __ANDROID__
+	lua_pushboolean(L, porting::rustoreHasSubscription());
+#else
+	lua_pushboolean(L, false);
+#endif
+	return 1;
+}
+
+int ModApiMainMenu::l_rustore_check_subscription_async(lua_State *L)
+{
+#ifdef __ANDROID__
+	porting::rustoreCheckSubscriptionAsync();
+	lua_pushboolean(L, true);
+#else
+	lua_pushboolean(L, false);
+#endif
+	return 1;
+}
+
+int ModApiMainMenu::l_rustore_purchase_subscription(lua_State *L)
+{
+#ifdef __ANDROID__
+	porting::rustorePurchaseSubscription();
+	lua_pushboolean(L, true);
+#else
+	lua_pushboolean(L, false);
+#endif
+	return 1;
+}
+
+int ModApiMainMenu::l_rustore_get_expiration_date(lua_State *L)
+{
+#ifdef __ANDROID__
+	lua_pushinteger(L, porting::rustoreGetExpirationDate());
+#else
+	lua_pushinteger(L, 0);
+#endif
+	return 1;
+}
+
+int ModApiMainMenu::l_rustore_get_monthly_price(lua_State *L)
+{
+#ifdef __ANDROID__
+	std::string price = porting::rustoreGetMonthlyPrice();
+	lua_pushstring(L, price.c_str());
+#else
+	lua_pushstring(L, "");
+#endif
+	return 1;
+}
+
+int ModApiMainMenu::l_rustore_get_trial_price(lua_State *L)
+{
+#ifdef __ANDROID__
+	std::string price = porting::rustoreGetTrialPrice();
+	lua_pushstring(L, price.c_str());
+#else
+	lua_pushstring(L, "");
+#endif
+	return 1;
+}
+
+int ModApiMainMenu::l_rustore_get_trial_days(lua_State *L)
+{
+#ifdef __ANDROID__
+	lua_pushinteger(L, porting::rustoreGetTrialDays());
+#else
+	lua_pushinteger(L, 0);
+#endif
+	return 1;
+}
+
+int ModApiMainMenu::l_rustore_get_promo_price(lua_State *L)
+{
+#ifdef __ANDROID__
+	std::string price = porting::rustoreGetPromoPrice();
+	lua_pushstring(L, price.c_str());
+#else
+	lua_pushstring(L, "");
+#endif
+	return 1;
+}
+
+int ModApiMainMenu::l_rustore_get_promo_days(lua_State *L)
+{
+#ifdef __ANDROID__
+	lua_pushinteger(L, porting::rustoreGetPromoDays());
+#else
+	lua_pushinteger(L, 0);
+#endif
+	return 1;
+}
+
+int ModApiMainMenu::l_rustore_is_product_info_fetched(lua_State *L)
+{
+#ifdef __ANDROID__
+	lua_pushboolean(L, porting::rustoreIsProductInfoFetched());
+#else
+	lua_pushboolean(L, false);
+#endif
+	return 1;
+}
+
+int ModApiMainMenu::l_rustore_is_operation_in_progress(lua_State *L)
+{
+#ifdef __ANDROID__
+	lua_pushboolean(L, porting::rustoreIsOperationInProgress());
+#else
+	lua_pushboolean(L, false);
+#endif
+	return 1;
+}
+
+int ModApiMainMenu::l_rustore_get_last_operation_result(lua_State *L)
+{
+#ifdef __ANDROID__
+	lua_pushinteger(L, porting::rustoreGetLastOperationResult());
+#else
+	lua_pushinteger(L, 0);
+#endif
+	return 1;
+}
+
+int ModApiMainMenu::l_rustore_get_last_error(lua_State *L)
+{
+#ifdef __ANDROID__
+	std::string error = porting::rustoreGetLastError();
+	lua_pushstring(L, error.c_str());
+#else
+	lua_pushstring(L, "");
+#endif
+	return 1;
+}
+
+int ModApiMainMenu::l_rustore_clear_operation_result(lua_State *L)
+{
+#ifdef __ANDROID__
+	porting::rustoreClearOperationResult();
+#endif
+	return 0;
+}
+
+int ModApiMainMenu::l_rustore_restore_purchases(lua_State *L)
+{
+#ifdef __ANDROID__
+	porting::rustoreRestorePurchases();
+	lua_pushboolean(L, true);
+#else
+	lua_pushboolean(L, false);
+#endif
+	return 1;
+}
+
+int ModApiMainMenu::l_rustore_fetch_product_info(lua_State *L)
+{
+#ifdef __ANDROID__
+	porting::rustoreFetchProductInfo();
+	lua_pushboolean(L, true);
+#else
+	lua_pushboolean(L, false);
+#endif
+	return 1;
+}
+
+int ModApiMainMenu::l_rustore_clear_cache(lua_State *L)
+{
+#ifdef __ANDROID__
+	porting::rustoreClearCache();
+#endif
+	return 0;
+}
+
+/******************************************************************************/
 int ModApiMainMenu::l_do_async_callback(lua_State *L)
 {
 	MainMenuScripting *script = getScriptApi<MainMenuScripting>(L);
@@ -1239,6 +1417,25 @@ void ModApiMainMenu::Initialize(lua_State *L, int top)
 	API_FCT(scan_lan_servers);
 	API_FCT(get_lan_servers);
 	API_FCT(clear_lan_servers);
+	
+	// RuStore Pay SDK
+	API_FCT(rustore_has_subscription);
+	API_FCT(rustore_check_subscription_async);
+	API_FCT(rustore_purchase_subscription);
+	API_FCT(rustore_get_expiration_date);
+	API_FCT(rustore_get_monthly_price);
+	API_FCT(rustore_get_trial_price);
+	API_FCT(rustore_get_trial_days);
+	API_FCT(rustore_get_promo_price);
+	API_FCT(rustore_get_promo_days);
+	API_FCT(rustore_is_product_info_fetched);
+	API_FCT(rustore_is_operation_in_progress);
+	API_FCT(rustore_get_last_operation_result);
+	API_FCT(rustore_get_last_error);
+	API_FCT(rustore_clear_operation_result);
+	API_FCT(rustore_restore_purchases);
+	API_FCT(rustore_fetch_product_info);
+	API_FCT(rustore_clear_cache);
 
 	lua_pushboolean(L, g_first_run);
 	lua_setfield(L, top, "is_first_run");

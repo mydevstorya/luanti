@@ -7832,3 +7832,8 @@ msgstr "Игроки"
 #: builtin/mainmenu/vococraft/tab_mobile_online.lua
 msgid "Select a server"
 msgstr "Выберите сервер"
+
+#: builtin/mainmenu/vococraft/tab_local.lua
+msgid "Unlock Premium - play with mods and no ads"
+msgstr "Расширенная версия - играй с модами и без рекламы"
+

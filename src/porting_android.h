@@ -141,4 +141,93 @@ bool isInterstitialReady();
  */
 bool tryShowInterstitial();
 
+// ==================== RuStore Pay SDK ====================
+
+/**
+ * Check if user has active subscription (from cache)
+ * @return true if subscribed
+ */
+bool rustoreHasSubscription();
+
+/**
+ * Start async subscription check from server
+ */
+void rustoreCheckSubscriptionAsync();
+
+/**
+ * Start subscription purchase flow
+ */
+void rustorePurchaseSubscription();
+
+/**
+ * Get subscription expiration date as Unix timestamp (seconds)
+ */
+long rustoreGetExpirationDate();
+
+/**
+ * Get formatted monthly price
+ */
+std::string rustoreGetMonthlyPrice();
+
+/**
+ * Get formatted trial price
+ */
+std::string rustoreGetTrialPrice();
+
+/**
+ * Get trial duration in days (parsed from ISO 8601)
+ */
+int rustoreGetTrialDays();
+
+/**
+ * Get formatted promo price (if available, empty string otherwise)
+ */
+std::string rustoreGetPromoPrice();
+
+/**
+ * Get promo duration in days (parsed from ISO 8601)
+ */
+int rustoreGetPromoDays();
+
+/**
+ * Check if product info has been successfully fetched from RuStore
+ */
+bool rustoreIsProductInfoFetched();
+
+/**
+ * Check if async operation is in progress
+ */
+bool rustoreIsOperationInProgress();
+
+/**
+ * Get last operation result
+ * 0 = NONE, 1 = SUCCESS, 2 = ERROR, 3 = CANCELLED, 4 = NO_INTERNET, 5 = NOT_AVAILABLE
+ */
+int rustoreGetLastOperationResult();
+
+/**
+ * Get last error message
+ */
+std::string rustoreGetLastError();
+
+/**
+ * Clear last operation result
+ */
+void rustoreClearOperationResult();
+
+/**
+ * Restore purchases (call on app start)
+ */
+void rustoreRestorePurchases();
+
+/**
+ * Fetch product info (prices) from RuStore
+ */
+void rustoreFetchProductInfo();
+
+/**
+ * Clear subscription cache (for testing)
+ */
+void rustoreClearCache();
+
 }

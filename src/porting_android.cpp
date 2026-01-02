@@ -552,4 +552,459 @@ bool tryShowInterstitial()
 	return result;
 }
 
+// ==================== RuStore Pay SDK ====================
+
+static jclass getRuStorePayClass()
+{
+	static jclass cls = nullptr;
+	if (cls == nullptr) {
+		jclass localCls = jnienv->FindClass("com/VocoCraft/VocoCraft/RuStorePay");
+		if (localCls != nullptr) {
+			cls = (jclass)jnienv->NewGlobalRef(localCls);
+			jnienv->DeleteLocalRef(localCls);
+		}
+	}
+	return cls;
+}
+
+bool rustoreHasSubscription()
+{
+	if (jnienv == nullptr) return false;
+	
+	jclass cls = getRuStorePayClass();
+	if (cls == nullptr) {
+		errorstream << "[RuStorePay JNI] RuStorePay class not found" << std::endl;
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return false;
+	}
+	
+	jmethodID method = jnienv->GetStaticMethodID(cls, "hasSubscription", "()Z");
+	if (method == nullptr) {
+		errorstream << "[RuStorePay JNI] hasSubscription method not found" << std::endl;
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return false;
+	}
+	
+	bool result = jnienv->CallStaticBooleanMethod(cls, method);
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		return false;
+	}
+	
+	return result;
+}
+
+void rustoreCheckSubscriptionAsync()
+{
+	if (jnienv == nullptr) return;
+	
+	jclass cls = getRuStorePayClass();
+	if (cls == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return;
+	}
+	
+	jmethodID method = jnienv->GetStaticMethodID(cls, "checkSubscriptionAsync", "()V");
+	if (method == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return;
+	}
+	
+	jnienv->CallStaticVoidMethod(cls, method);
+	if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+}
+
+void rustorePurchaseSubscription()
+{
+	if (jnienv == nullptr) return;
+	
+	infostream << "[RuStorePay JNI] rustorePurchaseSubscription()" << std::endl;
+	
+	jclass cls = getRuStorePayClass();
+	if (cls == nullptr) {
+		errorstream << "[RuStorePay JNI] RuStorePay class not found" << std::endl;
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return;
+	}
+	
+	jmethodID method = jnienv->GetStaticMethodID(cls, "purchaseSubscription", "()V");
+	if (method == nullptr) {
+		errorstream << "[RuStorePay JNI] purchaseSubscription method not found" << std::endl;
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return;
+	}
+	
+	jnienv->CallStaticVoidMethod(cls, method);
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		errorstream << "[RuStorePay JNI] Exception in purchaseSubscription" << std::endl;
+	}
+	
+	infostream << "[RuStorePay JNI] purchaseSubscription called" << std::endl;
+}
+
+long rustoreGetExpirationDate()
+{
+	if (jnienv == nullptr) return 0;
+	
+	jclass cls = getRuStorePayClass();
+	if (cls == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return 0;
+	}
+	
+	jmethodID method = jnienv->GetStaticMethodID(cls, "getExpirationDate", "()J");
+	if (method == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return 0;
+	}
+	
+	jlong result = jnienv->CallStaticLongMethod(cls, method);
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		return 0;
+	}
+	
+	return (long)result;
+}
+
+std::string rustoreGetMonthlyPrice()
+{
+	if (jnienv == nullptr) return "199 ₽";
+	
+	jclass cls = getRuStorePayClass();
+	if (cls == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return "199 ₽";
+	}
+	
+	jmethodID method = jnienv->GetStaticMethodID(cls, "getMonthlyPrice", "()Ljava/lang/String;");
+	if (method == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return "199 ₽";
+	}
+	
+	jstring jstr = (jstring)jnienv->CallStaticObjectMethod(cls, method);
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		return "199 ₽";
+	}
+	
+	if (jstr == nullptr) return "199 ₽";
+	
+	const char *cstr = jnienv->GetStringUTFChars(jstr, nullptr);
+	std::string result(cstr);
+	jnienv->ReleaseStringUTFChars(jstr, cstr);
+	jnienv->DeleteLocalRef(jstr);
+	
+	return result;
+}
+
+std::string rustoreGetTrialPrice()
+{
+	if (jnienv == nullptr) return "Бесплатно";
+	
+	jclass cls = getRuStorePayClass();
+	if (cls == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return "Бесплатно";
+	}
+	
+	jmethodID method = jnienv->GetStaticMethodID(cls, "getTrialPrice", "()Ljava/lang/String;");
+	if (method == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return "Бесплатно";
+	}
+	
+	jstring jstr = (jstring)jnienv->CallStaticObjectMethod(cls, method);
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		return "Бесплатно";
+	}
+	
+	if (jstr == nullptr) return "Бесплатно";
+	
+	const char *cstr = jnienv->GetStringUTFChars(jstr, nullptr);
+	std::string result(cstr);
+	jnienv->ReleaseStringUTFChars(jstr, cstr);
+	jnienv->DeleteLocalRef(jstr);
+	
+	return result;
+}
+
+int rustoreGetTrialDays()
+{
+	if (jnienv == nullptr) return 0;
+	
+	jclass cls = getRuStorePayClass();
+	if (cls == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return 0;
+	}
+	
+	jmethodID method = jnienv->GetStaticMethodID(cls, "getTrialDays", "()I");
+	if (method == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return 0;
+	}
+	
+	int result = jnienv->CallStaticIntMethod(cls, method);
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		return 0;
+	}
+	
+	return result;
+}
+
+std::string rustoreGetPromoPrice()
+{
+	if (jnienv == nullptr) return "";
+	
+	jclass cls = getRuStorePayClass();
+	if (cls == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return "";
+	}
+	
+	jmethodID method = jnienv->GetStaticMethodID(cls, "getPromoPrice", "()Ljava/lang/String;");
+	if (method == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return "";
+	}
+	
+	jstring jstr = (jstring) jnienv->CallStaticObjectMethod(cls, method);
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		return "";
+	}
+	
+	if (jstr == nullptr) return "";
+	
+	const char *cstr = jnienv->GetStringUTFChars(jstr, nullptr);
+	std::string result(cstr);
+	jnienv->ReleaseStringUTFChars(jstr, cstr);
+	jnienv->DeleteLocalRef(jstr);
+	
+	return result;
+}
+
+int rustoreGetPromoDays()
+{
+	if (jnienv == nullptr) return 0;
+	
+	jclass cls = getRuStorePayClass();
+	if (cls == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return 0;
+	}
+	
+	jmethodID method = jnienv->GetStaticMethodID(cls, "getPromoDays", "()I");
+	if (method == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return 0;
+	}
+	
+	int result = jnienv->CallStaticIntMethod(cls, method);
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		return 0;
+	}
+	
+	return result;
+}
+
+bool rustoreIsProductInfoFetched()
+{
+	if (jnienv == nullptr) return false;
+	
+	jclass cls = getRuStorePayClass();
+	if (cls == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return false;
+	}
+	
+	jmethodID method = jnienv->GetStaticMethodID(cls, "isProductInfoFetched", "()Z");
+	if (method == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return false;
+	}
+	
+	bool result = jnienv->CallStaticBooleanMethod(cls, method);
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		return false;
+	}
+	
+	return result;
+}
+
+bool rustoreIsOperationInProgress()
+{
+	if (jnienv == nullptr) return false;
+	
+	jclass cls = getRuStorePayClass();
+	if (cls == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return false;
+	}
+	
+	jmethodID method = jnienv->GetStaticMethodID(cls, "isOperationInProgress", "()Z");
+	if (method == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return false;
+	}
+	
+	bool result = jnienv->CallStaticBooleanMethod(cls, method);
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		return false;
+	}
+	
+	return result;
+}
+
+int rustoreGetLastOperationResult()
+{
+	if (jnienv == nullptr) return 0;
+	
+	jclass cls = getRuStorePayClass();
+	if (cls == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return 0;
+	}
+	
+	jmethodID method = jnienv->GetStaticMethodID(cls, "getLastOperationResult", "()I");
+	if (method == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return 0;
+	}
+	
+	int result = jnienv->CallStaticIntMethod(cls, method);
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		return 0;
+	}
+	
+	return result;
+}
+
+std::string rustoreGetLastError()
+{
+	if (jnienv == nullptr) return "";
+	
+	jclass cls = getRuStorePayClass();
+	if (cls == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return "";
+	}
+	
+	jmethodID method = jnienv->GetStaticMethodID(cls, "getLastError", "()Ljava/lang/String;");
+	if (method == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return "";
+	}
+	
+	jstring jstr = (jstring)jnienv->CallStaticObjectMethod(cls, method);
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		return "";
+	}
+	
+	if (jstr == nullptr) return "";
+	
+	const char *cstr = jnienv->GetStringUTFChars(jstr, nullptr);
+	std::string result(cstr);
+	jnienv->ReleaseStringUTFChars(jstr, cstr);
+	jnienv->DeleteLocalRef(jstr);
+	
+	return result;
+}
+
+void rustoreClearOperationResult()
+{
+	if (jnienv == nullptr) return;
+	
+	jclass cls = getRuStorePayClass();
+	if (cls == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return;
+	}
+	
+	jmethodID method = jnienv->GetStaticMethodID(cls, "clearOperationResult", "()V");
+	if (method == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return;
+	}
+	
+	jnienv->CallStaticVoidMethod(cls, method);
+	if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+}
+
+void rustoreRestorePurchases()
+{
+	if (jnienv == nullptr) return;
+	
+	infostream << "[RuStorePay JNI] rustoreRestorePurchases()" << std::endl;
+	
+	jclass cls = getRuStorePayClass();
+	if (cls == nullptr) {
+		errorstream << "[RuStorePay JNI] RuStorePay class not found" << std::endl;
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return;
+	}
+	
+	jmethodID method = jnienv->GetStaticMethodID(cls, "restorePurchases", "()V");
+	if (method == nullptr) {
+		errorstream << "[RuStorePay JNI] restorePurchases method not found" << std::endl;
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return;
+	}
+	
+	jnienv->CallStaticVoidMethod(cls, method);
+	if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+	
+	infostream << "[RuStorePay JNI] restorePurchases called" << std::endl;
+}
+
+void rustoreFetchProductInfo()
+{
+	if (jnienv == nullptr) return;
+	
+	jclass cls = getRuStorePayClass();
+	if (cls == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return;
+	}
+	
+	jmethodID method = jnienv->GetStaticMethodID(cls, "fetchProductInfo", "()V");
+	if (method == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return;
+	}
+	
+	jnienv->CallStaticVoidMethod(cls, method);
+	if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+}
+
+void rustoreClearCache()
+{
+	if (jnienv == nullptr) return;
+	
+	jclass cls = getRuStorePayClass();
+	if (cls == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return;
+	}
+	
+	jmethodID method = jnienv->GetStaticMethodID(cls, "clearCache", "()V");
+	if (method == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return;
+	}
+	
+	jnienv->CallStaticVoidMethod(cls, method);
+	if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+}
+
 }

@@ -40,6 +40,13 @@ dofile(menupath .. DIR_DELIM .. "async_event.lua")
 dofile(menupath .. DIR_DELIM .. "common.lua")
 dofile(menupath .. DIR_DELIM .. "serverlistmgr.lua")
 dofile(menupath .. DIR_DELIM .. "game_theme.lua")
+
+-- === VOCOCRAFT: Load subscription module BEFORE content (needed for mod install check) ===
+dofile(menupath .. DIR_DELIM .. "vococraft" .. DIR_DELIM .. "subscription.lua")
+dofile(menupath .. DIR_DELIM .. "vococraft" .. DIR_DELIM .. "dlg_subscription.lua")
+dofile(menupath .. DIR_DELIM .. "vococraft" .. DIR_DELIM .. "content_filter.lua")
+-- === END VOCOCRAFT ===
+
 dofile(menupath .. DIR_DELIM .. "content" .. DIR_DELIM .. "init.lua")
 
 dofile(menupath .. DIR_DELIM .. "dlg_config_world.lua")
@@ -89,6 +96,12 @@ local function init_globals()
 	-- === VOCOCRAFT: Hide banner on mobile ===
 	if VOCOCRAFT_MOBILE_UI and core.hide_banner then
 		core.hide_banner()
+	end
+	-- === END VOCOCRAFT ===
+	
+	-- === VOCOCRAFT: Initialize subscription system (RuStore Pay) ===
+	if vococraft_subscription and vococraft_subscription.init then
+		vococraft_subscription.init()
 	end
 	-- === END VOCOCRAFT ===
 

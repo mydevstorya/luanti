@@ -9,4 +9,8 @@
 	<string name="game_notification_title">Vococraft is running</string>
 	<string name="ime_dialog_done">Done</string>
 	<string name="no_web_browser">No web browser found</string>
+	
+	<!-- RuStore Pay SDK: Console Application ID from RuStore Console -->
+	<!-- Replace with actual ID from https://console.rustore.ru/apps/YOUR_APP_ID -->
+	<string name="rustore_console_app_id">2063578938</string>
 </resources>

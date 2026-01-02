@@ -5,6 +5,19 @@
 
 local mobile_online = dofile(core.get_mainmenu_path() .. DIR_DELIM .. "vococraft" .. DIR_DELIM .. "tab_mobile_online.lua")
 
+-- === VOCOCRAFT: Subscribe to subscription events to update UI ===
+if vococraft_subscription then
+	vococraft_subscription.add_listener(function(event_type, data)
+		core.log("action", "[Vococraft tab_local] Received event: " .. event_type)
+		if event_type == "state_changed" or event_type == "restore_complete" or event_type == "purchase_complete" then
+			-- Subscription state changed, update main menu UI
+			core.log("action", "[Vococraft tab_local] Updating UI due to subscription change")
+			ui.update()
+		end
+	end)
+end
+-- === END VOCOCRAFT ===
+
 local current_game, singleplayer_refresh_gamebar
 local valid_disabled_settings = {
 	["enable_damage"]=false,
@@ -86,13 +99,27 @@ end
 -- MOBILE UI FORMSPEC
 --------------------------------------------------------------------------------
 local function get_formspec(tabview, name, tabdata)
+	-- === VOCOCRAFT: Poll for async subscription results ===
+	if vococraft_subscription then
+		vococraft_subscription.poll_async_results()
+	end
+	-- === END VOCOCRAFT ===
+	
 	local W = 16
+	
+	-- === VOCOCRAFT: Increase height if premium button is shown ===
 	local H = 9.5
+	local PREMIUM_BTN_H = 0
+	if vococraft_subscription and not vococraft_subscription.has_subscription() then
+		PREMIUM_BTN_H = 1.0
+		H = 10.5  -- Increase total height to fit premium button
+	end
+	-- === END VOCOCRAFT ===
 
 	local HEADER_H = 0.7
 	local TAB_H = 0.9
 	local CONTENT_Y = HEADER_H + TAB_H
-	local CONTENT_H = H - CONTENT_Y
+	local CONTENT_H = H - CONTENT_Y - PREMIUM_BTN_H
 
 	local fs = {}
 
@@ -287,6 +314,24 @@ local function get_formspec(tabview, name, tabdata)
 		table.insert(fs, servers_fs)
 	end
 
+	-- === VOCOCRAFT: Show "Unlock Premium" button if no subscription ===
+	if vococraft_subscription and not vococraft_subscription.has_subscription() then
+		local sub_btn_y = H - 0.85
+		local sub_btn_h = 0.7
+		local sub_btn_x = 0.3
+		local sub_btn_w = W - 0.6
+		
+		-- Background box for button area
+		table.insert(fs, "box[0," .. (H - 0.95) .. ";" .. W .. ",0.95;#1e1e1e]")
+		
+		-- Purple premium button at bottom - bright and noticeable
+		table.insert(fs, "style[btn_unlock_premium;bgcolor=#9c27b0;border=true;font_size=*1.2;textcolor=#ffffff]")
+		table.insert(fs, "style[btn_unlock_premium:hovered;bgcolor=#ba68c8]")
+		table.insert(fs, "style[btn_unlock_premium:pressed;bgcolor=#7b1fa2]")
+		table.insert(fs, "button[" .. sub_btn_x .. "," .. sub_btn_y .. ";" .. sub_btn_w .. "," .. sub_btn_h .. ";btn_unlock_premium;★ " .. fgettext("Unlock Premium - play with mods and no ads") .. " ★]")
+	end
+	-- === END VOCOCRAFT ===
+
 	return table.concat(fs), true
 end
 
@@ -295,6 +340,16 @@ end
 --------------------------------------------------------------------------------
 local function main_button_handler(this, fields, name, tabdata)
 	assert(name == "local")
+
+	-- === VOCOCRAFT: Handle unlock premium button ===
+	if fields.btn_unlock_premium then
+		local dlg = create_subscription_dialog(nil, nil, nil)
+		dlg:set_parent(this)
+		this:hide()
+		dlg:show()
+		return true
+	end
+	-- === END VOCOCRAFT ===
 
 	-- Settings button handler
 	if fields.btn_settings then

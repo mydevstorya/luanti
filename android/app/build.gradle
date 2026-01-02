@@ -1,10 +1,11 @@
 apply plugin: 'com.android.application'
+apply plugin: 'kotlin-android'
 
 android {
 	ndkVersion "$ndk_version"
 	defaultConfig {
 		applicationId 'com.VocoCraft.VocoCraft'
-		minSdkVersion 21
+		minSdkVersion 23
 		compileSdk 34
 		targetSdkVersion 35
 		versionName "${versionMajor}.${versionMinor}.${versionPatch}"
@@ -53,6 +54,11 @@ android {
 		sourceCompatibility JavaVersion.VERSION_1_8
 		targetCompatibility JavaVersion.VERSION_1_8
 	}
+	
+	kotlinOptions {
+		jvmTarget = '1.8'
+	}
+	
 	namespace 'com.VocoCraft.VocoCraft'
 }
 
@@ -134,8 +140,13 @@ clean {
 dependencies {
 	implementation project(':native')
 	implementation 'androidx.appcompat:appcompat:1.6.1'
+	// Kotlin stdlib
+	implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
 	// AppMetrica SDK
 	implementation 'io.appmetrica.analytics:analytics:7.14.0'
 	// Yandex Mobile Ads SDK
 	implementation 'com.yandex.android:mobileads:7.18.1'
+	// RuStore Pay SDK - BOM версия
+	implementation(platform("ru.rustore.sdk:bom:2025.11.01"))
+	implementation("ru.rustore.sdk:pay")
 }

@@ -180,6 +180,12 @@ public class YandexAds {
      * Load interstitial ad
      */
     private static void loadInterstitial() {
+        // Skip loading ads if user has active subscription
+        if (RuStorePay.hasSubscription()) {
+            Log.d(TAG, "loadInterstitial: skipped - user has subscription");
+            return;
+        }
+        
         if (interstitialAdLoader == null || isInterstitialLoading) {
             return;
         }
@@ -208,6 +214,15 @@ public class YandexAds {
      * Returns true if ad will be shown, false if no ad available
      */
     public static boolean tryShowInterstitial(Activity activity, InterstitialCallback callback) {
+        // Skip showing ads if user has active subscription
+        if (RuStorePay.hasSubscription()) {
+            Log.d(TAG, "tryShowInterstitial: skipped - user has subscription");
+            if (callback != null) {
+                callback.onInterstitialDismissed(); // Treat as dismissed so game continues
+            }
+            return false;
+        }
+        
         if (activity == null || activity.isFinishing() || activity.isDestroyed()) {
             Log.w(TAG, "tryShowInterstitial: activity is null or finishing");
             if (callback != null) {
@@ -321,6 +336,12 @@ public class YandexAds {
      * This resizes the game view to make room for the banner
      */
     public static void showBanner(Activity activity, ViewGroup gameLayout, View gameView) {
+        // Skip showing ads if user has active subscription
+        if (RuStorePay.hasSubscription()) {
+            Log.d(TAG, "showBanner: skipped - user has subscription");
+            return;
+        }
+        
         if (activity == null || activity.isFinishing() || activity.isDestroyed()) {
             Log.w(TAG, "showBanner: activity is null or finishing");
             return;
@@ -449,6 +470,12 @@ public class YandexAds {
      * Schedule a banner retry after delay
      */
     private static void scheduleBannerRetry(Activity activity, ViewGroup gameLayout, View gameView) {
+        // Don't schedule retry if user has subscription
+        if (RuStorePay.hasSubscription()) {
+            Log.d(TAG, "scheduleBannerRetry: skipped - user has subscription");
+            return;
+        }
+        
         // Don't schedule retry if we're shutting down
         if (!bannerRequested || activity == null || activity.isFinishing() || activity.isDestroyed()) {
             return;
@@ -512,6 +539,12 @@ public class YandexAds {
      * Internal method to show banner (used for initial and retry)
      */
     private static void showBannerInternal(Activity activity, ViewGroup gameLayout, View gameView) {
+        // Skip if user has subscription
+        if (RuStorePay.hasSubscription()) {
+            Log.d(TAG, "showBannerInternal: skipped - user has subscription");
+            return;
+        }
+        
         if (activity.isFinishing() || activity.isDestroyed()) {
             return;
         }
