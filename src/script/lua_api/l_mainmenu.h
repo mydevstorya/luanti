@@ -164,6 +164,7 @@ private:
 	static int l_rustore_get_last_operation_result(lua_State *L);
 	static int l_rustore_get_last_error(lua_State *L);
 	static int l_rustore_clear_operation_result(lua_State *L);
+	static int l_check_activity_resumed(lua_State *L);
 	static int l_rustore_restore_purchases(lua_State *L);
 	static int l_rustore_fetch_product_info(lua_State *L);
 	static int l_rustore_clear_cache(lua_State *L);

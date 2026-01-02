@@ -195,6 +195,7 @@ class RuStoreReview private constructor(private val context: Context) {
     /**
      * Launch the actual review UI.
      */
+    @Suppress("UNUSED_PARAMETER")
     private fun launchReviewFlow(activity: Activity, info: ReviewInfo) {
         Log.i(TAG, "Launching review flow...")
         reviewFlowShown = true

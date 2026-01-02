@@ -22,6 +22,7 @@
 #include <sstream>
 #include <exception>
 #include <cstdlib>
+#include <atomic>
 
 #ifdef GPROF
 #include "prof.h"
@@ -46,6 +47,36 @@ Java_com_VocoCraft_VocoCraft_GameActivity_onInterstitialDismissedNative(JNIEnv* 
 extern "C" JNIEXPORT void JNICALL
 Java_com_VocoCraft_VocoCraft_GameActivity_onInterstitialFailedNative(JNIEnv* env, jobject /* this */) {
 	infostream << "[YandexAds] Interstitial failed (native callback)" << std::endl;
+}
+
+// Flag to indicate activity was resumed (e.g. after returning from RuStore payment)
+// Declared outside namespace but not static so it can be accessed from porting namespace
+std::atomic<bool> g_activity_resumed_flag{false};
+
+// Flag to indicate purchase completed and UI should refresh
+std::atomic<bool> g_purchase_complete_flag{false};
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_VocoCraft_VocoCraft_GameActivity_nativeOnActivityResumed(JNIEnv* env, jobject /* this */) {
+	infostream << "[Android] Activity resumed (native callback)" << std::endl;
+	g_activity_resumed_flag.store(true);
+}
+
+// Called from GameActivity (via RuStorePay.kt) when purchase completes
+extern "C" JNIEXPORT void JNICALL
+Java_com_VocoCraft_VocoCraft_GameActivity_nativeOnPurchaseComplete(JNIEnv* env, jobject /* this */) {
+	infostream << "[RuStorePay] Purchase complete (native callback) - triggering UI refresh" << std::endl;
+	g_purchase_complete_flag.store(true);
+	
+	// Push a dummy SDL event to wake up the main loop immediately
+	// This ensures the flag check happens without waiting for next frame
+	SDL_Event event;
+	event.type = SDL_USEREVENT;
+	event.user.code = 0;
+	event.user.data1 = nullptr;
+	event.user.data2 = nullptr;
+	SDL_PushEvent(&event);
+	infostream << "[RuStorePay] SDL event pushed to wake main loop" << std::endl;
 }
 
 namespace porting {
@@ -1005,6 +1036,18 @@ void rustoreClearCache()
 	
 	jnienv->CallStaticVoidMethod(cls, method);
 	if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+}
+
+bool checkAndClearActivityResumedFlag()
+{
+	// Check both flags - activity resumed OR purchase complete
+	// Either one should trigger UI refresh
+	bool resumed = ::g_activity_resumed_flag.exchange(false);
+	bool purchase = ::g_purchase_complete_flag.exchange(false);
+	if (resumed || purchase) {
+		infostream << "[Android] UI refresh triggered: resumed=" << resumed << ", purchase=" << purchase << std::endl;
+	}
+	return resumed || purchase;
 }
 
 }

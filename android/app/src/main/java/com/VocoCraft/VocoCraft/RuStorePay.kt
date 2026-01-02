@@ -578,13 +578,15 @@ class RuStorePay private constructor(private val context: Context) {
         
         saveToCache()
         lastOperationResult.set(RESULT_SUCCESS)
+        operationInProgress.set(false)
 
         Log.i(TAG, "Subscription purchased successfully")
         
-        // Trigger async check to get real expiration date
-        // Reset the flag first
-        operationInProgress.set(false)
-        doCheckSubscription()
+        // Analytics: successful purchase (send immediately from Kotlin)
+        sendSubscriptionAnalytics("purchase", "success", null)
+        
+        // Trigger UI refresh in native code
+        triggerNativeUiRefresh()
     }
 
     /**
@@ -601,12 +603,67 @@ class RuStorePay private constructor(private val context: Context) {
                 lastOperationResult.set(RESULT_CANCELLED)
                 lastError.set("Purchase cancelled by user")
                 Log.i(TAG, "Purchase cancelled by user")
+                // Analytics: cancelled purchase
+                sendSubscriptionAnalytics("purchase", "cancelled", null)
             }
             else -> {
                 lastOperationResult.set(RESULT_ERROR)
                 lastError.set(error.message ?: "Unknown error")
+                // Analytics: failed purchase
+                sendSubscriptionAnalytics("purchase", "failed", error.message ?: errorClassName)
             }
         }
+        
+        operationInProgress.set(false)
+        
+        // Trigger UI refresh in native code
+        triggerNativeUiRefresh()
+    }
+
+    /**
+     * Trigger UI refresh in native code.
+     * This is called after purchase completes to update Lua UI.
+     * Must run on main thread for proper JNI/native interaction.
+     */
+    private fun triggerNativeUiRefresh() {
+        val currentActivity = activity
+        if (currentActivity == null) {
+            Log.w(TAG, "Activity is null, cannot trigger UI refresh")
+            return
+        }
+        
+        // Must run on UI thread for proper native interaction
+        currentActivity.runOnUiThread {
+            try {
+                Log.d(TAG, "Triggering native UI refresh on main thread...")
+                (currentActivity as? GameActivity)?.nativeOnPurchaseComplete()
+                    ?: Log.w(TAG, "Activity is not GameActivity, cannot trigger refresh")
+                Log.d(TAG, "Native UI refresh triggered successfully")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to trigger native UI refresh: ${e.message}")
+                e.printStackTrace()
+            } catch (e: UnsatisfiedLinkError) {
+                Log.e(TAG, "Native method not found: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * Send subscription analytics event.
+     * Single event "subscription" with tree of parameters.
+     */
+    private fun sendSubscriptionAnalytics(action: String, result: String?, error: String?) {
+        val params = StringBuilder("{\"action\":\"$action\"")
+        if (result != null) {
+            params.append(",\"result\":\"$result\"")
+        }
+        if (error != null) {
+            val safeError = error.replace("\\", "\\\\").replace("\"", "\\\"")
+            params.append(",\"error\":\"$safeError\"")
+        }
+        params.append("}")
+        Log.d(TAG, "Sending analytics: subscription with params: $params")
+        Analytics.sendEventWithParams("subscription", params.toString())
     }
 
     /**

@@ -91,6 +91,15 @@ public class GameActivity extends SDLActivity {
 		handleRuStoreIntent(intent);
 	}
 	
+	@Override
+	protected void onResume() {
+		super.onResume();
+		// Notify native code that activity resumed (e.g. after returning from RuStore payment)
+		// This triggers UI refresh in Lua to detect purchase completion
+		Log.d(TAG, "onResume - notifying native for UI refresh");
+		nativeOnActivityResumed();
+	}
+	
 	private void handleRuStoreIntent(Intent intent) {
 		if (intent == null) return;
 		
@@ -134,6 +143,10 @@ public class GameActivity extends SDLActivity {
 	private int selectionReturnValue = 0;
 
 	private native void saveSettings();
+	private native void nativeOnActivityResumed();
+	
+	// Called from RuStorePay when purchase completes - triggers UI refresh
+	public native void nativeOnPurchaseComplete();
 
 	@Override
 	protected void onStop() {

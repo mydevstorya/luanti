@@ -234,9 +234,16 @@ end
 
 --- Update subscription state from RuStore cache (call periodically)
 --- Returns true if state was updated
+--- NOTE: This function should NOT be called while purchase_in_progress is true,
+--- as it may clear the operation result before check_purchase_result() can read it.
 ---@return boolean state_changed
 function vococraft_subscription.update_subscription_state()
 	if not vococraft_subscription.is_android() then
+		return false
+	end
+	
+	-- Don't process results while purchase is in progress - let check_purchase_result handle it
+	if vococraft_subscription.purchase_in_progress then
 		return false
 	end
 	

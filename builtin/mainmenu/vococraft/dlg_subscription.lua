@@ -4,51 +4,35 @@
 
 -- Beautiful mobile-first subscription offer dialog
 
-local function get_subscription_formspec(data)
-	-- Poll all async operations (restore, product info, state changes)
-	vococraft_subscription.poll_async_results()
-	
-	-- Check if purchase operation completed (for async operations)
-	-- Always check - even if purchase_in_progress is false, we might have a pending result
-	local success, error_msg = vococraft_subscription.check_purchase_result()
-	if success ~= nil then
-		-- Operation completed
-		if success then
-			-- Purchase successful! Close this dialog
-			data.purchase_success = true
-			-- Analytics: successful purchase
-			core.log("action", "[Vococraft Analytics] Sending subscription_purchase_success")
-			if core.send_analytics_event then
-				local result = core.send_analytics_event("subscription_purchase_success", "")
-				core.log("action", "[Vococraft Analytics] Result: " .. tostring(result))
-			else
-				core.log("warning", "[Vococraft Analytics] core.send_analytics_event is nil!")
-			end
-		else
-			-- Purchase failed or cancelled
-			if error_msg and error_msg ~= "Покупка отменена" then
-				data.purchase_error = error_msg
-				-- Analytics: failed purchase with reason
-				core.log("action", "[Vococraft Analytics] Sending subscription_purchase_failed: " .. tostring(error_msg))
-				if core.send_analytics_event then
-					local params = core.write_json({reason = error_msg})
-					local result = core.send_analytics_event("subscription_purchase_failed", params)
-					core.log("action", "[Vococraft Analytics] Result: " .. tostring(result))
-				else
-					core.log("warning", "[Vococraft Analytics] core.send_analytics_event is nil!")
-				end
-			else
-				-- Analytics: cancelled purchase
-				core.log("action", "[Vococraft Analytics] Sending subscription_purchase_cancelled")
-				if core.send_analytics_event then
-					local result = core.send_analytics_event("subscription_purchase_cancelled", "")
-					core.log("action", "[Vococraft Analytics] Result: " .. tostring(result))
-				else
-					core.log("warning", "[Vococraft Analytics] core.send_analytics_event is nil!")
-				end
-			end
-		end
+-- Helper function to send subscription analytics
+-- Single event "subscription" with tree of parameters
+local function send_subscription_analytics(action, result, error_msg, source)
+	local params = {action = action}
+	if result then
+		params.result = result
 	end
+	if error_msg then
+		params.error = error_msg
+	end
+	if source then
+		params.source = source
+	end
+	local json_params = core.write_json(params)
+	core.log("action", "[Vococraft Analytics] Sending subscription: " .. json_params)
+	if core.send_analytics_event then
+		local res = core.send_analytics_event("subscription", json_params)
+		core.log("action", "[Vococraft Analytics] Result: " .. tostring(res))
+	else
+		core.log("warning", "[Vococraft Analytics] core.send_analytics_event is nil!")
+	end
+end
+
+local function get_subscription_formspec(data)
+	-- Note: purchase result checking is now handled in subscription_event_handler
+	-- when "Refresh" event is received, to avoid race conditions
+	
+	-- Poll other async operations (restore, product info, state changes)
+	vococraft_subscription.poll_async_results()
 	
 	-- Fixed dimensions for consistent look
 	local w = 10
@@ -175,6 +159,7 @@ local function handle_subscription_buttons(this, fields)
 	-- Check for completed async purchase (called when formspec updates)
 	if this.data.purchase_success then
 		core.log("action", "[Vococraft] Subscription purchased successfully (async)")
+		current_subscription_dialog = nil  -- Clear reference
 		this:delete()
 		
 		-- If there's a pending package to install, proceed with it
@@ -197,6 +182,7 @@ local function handle_subscription_buttons(this, fields)
 	if fields.btn_close or fields.quit then
 		-- Reset purchase state if user closes dialog during purchase
 		vococraft_subscription.purchase_in_progress = false
+		current_subscription_dialog = nil  -- Clear reference
 		this:delete()
 		return true
 	end
@@ -217,11 +203,52 @@ local function handle_subscription_buttons(this, fields)
 end
 
 
-local function subscription_event_handler(self, event)
+-- Store reference to dialog for use in event handler
+-- (user_eventhandler is called with only event, not self)
+local current_subscription_dialog = nil
+
+local function subscription_event_handler(event)
+	local self = current_subscription_dialog
+	if not self then
+		return false
+	end
+	
 	if event == "MenuQuit" then
+		current_subscription_dialog = nil  -- Clear reference
 		self:delete()
 		return true
 	end
+	
+	-- Handle Refresh event - check if purchase completed
+	if event == "Refresh" then
+		-- Check purchase result
+		local success, error_msg = vococraft_subscription.check_purchase_result()
+		if success ~= nil then
+			if success then
+				core.log("action", "[Vococraft Dialog] Purchase success detected in event handler, closing dialog")
+				self.data.purchase_success = true
+				current_subscription_dialog = nil  -- Clear reference before delete
+				self:delete()
+				
+				-- If there's a pending package to install, proceed with it
+				if self.data.pending_package and self.data.pending_parent then
+					local package = self.data.pending_package
+					if self.data.original_install_func then
+						self.data.original_install_func(self.data.pending_parent, package)
+					end
+				end
+				return true
+			else
+				-- Purchase failed or cancelled
+				if error_msg and error_msg ~= "Покупка отменена" then
+					self.data.purchase_error = error_msg
+				end
+				-- Don't close dialog on error/cancel - let user try again
+			end
+		end
+		return false
+	end
+	
 	return false
 end
 
@@ -237,18 +264,27 @@ function create_subscription_dialog(pending_package, pending_parent, original_in
 		handle_subscription_buttons,
 		subscription_event_handler)
 	
+	-- Store reference for event handler (user_eventhandler doesn't receive self)
+	current_subscription_dialog = dlg
+	
 	dlg.data.pending_package = pending_package
 	dlg.data.pending_parent = pending_parent
 	dlg.data.original_install_func = original_install_func
 	
-	-- Listen for product info loaded event to refresh UI
+	-- Listen for subscription events to refresh UI
 	local listener_id
 	listener_id = vococraft_subscription.add_listener(function(event, data)
 		if event == "product_info_loaded" then
 			core.log("action", "[Vococraft Dialog] Product info loaded, refreshing UI")
 			ui.update()
-			-- Remove listener after product info is loaded
-			-- (listener_id will be used next time dialog is opened if needed)
+		elseif event == "purchase_complete" then
+			-- Purchase completed - refresh UI immediately to close dialog
+			core.log("action", "[Vococraft Dialog] Purchase complete event received, refreshing UI")
+			ui.update()
+		elseif event == "state_changed" then
+			-- Subscription state changed - refresh UI
+			core.log("action", "[Vococraft Dialog] State changed event received, refreshing UI")
+			ui.update()
 		end
 	end)
 	
@@ -266,14 +302,7 @@ end
 function show_subscription_dialog(parent, pending_package, original_install_func)
 	-- Analytics: dialog opened
 	local source = pending_package and "mod_install" or "menu"
-	core.log("action", "[Vococraft Analytics] Sending subscription_dialog_opened, source=" .. source)
-	if core.send_analytics_event then
-		local params = core.write_json({source = source})
-		local result = core.send_analytics_event("subscription_dialog_opened", params)
-		core.log("action", "[Vococraft Analytics] Result: " .. tostring(result))
-	else
-		core.log("warning", "[Vococraft Analytics] core.send_analytics_event is nil!")
-	end
+	send_subscription_analytics("dialog_opened", nil, nil, source)
 	
 	local dlg = create_subscription_dialog(pending_package, parent, original_install_func)
 	dlg:set_parent(parent)

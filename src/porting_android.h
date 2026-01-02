@@ -230,4 +230,10 @@ void rustoreFetchProductInfo();
  */
 void rustoreClearCache();
 
+/**
+ * Check if activity was resumed (e.g. after returning from RuStore payment)
+ * and clear the flag. Returns true if activity was resumed.
+ */
+bool checkAndClearActivityResumedFlag();
+
 }

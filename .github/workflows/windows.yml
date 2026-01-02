@@ -58,8 +58,8 @@ jobs:
         run: |
           dest=$(mktemp -d)
           unzip -q -d "$dest" B/build/*.zip
-          cd "$dest"/luanti-*-win*
-          wine bin/luanti.exe --version
+          cd "$dest"/vococraft-*-win*
+          wine bin/vococraft.exe --version
 
       - uses: actions/upload-artifact@v4
         with:

@@ -29,6 +29,10 @@
 #include "util/tracy_wrapper.h"
 #include "script/common/c_types.h" // LuaError
 
+#ifdef __ANDROID__
+#include "porting_android.h"
+#endif
+
 #if USE_SOUND
 	#include "client/sound/sound_openal.h"
 #endif
@@ -334,6 +338,16 @@ void GUIEngine::run()
 
 	while (m_rendering_engine->run() && !m_startgame && !m_kill) {
 		framemarker.end();
+		
+#ifdef __ANDROID__
+		// Check for UI refresh flags FIRST, before fps limiting
+		// This ensures we catch events even if loop was paused
+		if (porting::checkAndClearActivityResumedFlag()) {
+			infostream << "[GUIEngine] Triggering UI refresh from activity resumed/purchase complete" << std::endl;
+			m_script->handleMainMenuEvent("Refresh");
+		}
+#endif
+		
 		fps_control.limit(device, &dtime);
 		framemarker.start();
 

@@ -1309,6 +1309,16 @@ int ModApiMainMenu::l_rustore_clear_operation_result(lua_State *L)
 	return 0;
 }
 
+int ModApiMainMenu::l_check_activity_resumed(lua_State *L)
+{
+#ifdef __ANDROID__
+	lua_pushboolean(L, porting::checkAndClearActivityResumedFlag());
+#else
+	lua_pushboolean(L, false);
+#endif
+	return 1;
+}
+
 int ModApiMainMenu::l_rustore_restore_purchases(lua_State *L)
 {
 #ifdef __ANDROID__
@@ -1436,6 +1446,7 @@ void ModApiMainMenu::Initialize(lua_State *L, int top)
 	API_FCT(rustore_restore_purchases);
 	API_FCT(rustore_fetch_product_info);
 	API_FCT(rustore_clear_cache);
+	API_FCT(check_activity_resumed);
 
 	lua_pushboolean(L, g_first_run);
 	lua_setfield(L, top, "is_first_run");
