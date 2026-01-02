@@ -70,10 +70,18 @@ public class GameActivity extends SDLActivity {
 		// Initialize RuStore Pay SDK
 		RuStorePay.init(this);
 		
+		// Initialize RuStore Review (must be after RuStorePay)
+		RuStoreReview.init(this);
+		
 		// Handle deeplink if activity started from payment app
 		if (savedInstanceState == null) {
 			handleRuStoreIntent(getIntent());
 		}
+		
+		// Try to show review dialog after a short delay (let app fully load)
+		new Handler(Looper.getMainLooper()).postDelayed(() -> {
+			RuStoreReview.tryShowReview();
+		}, 3000); // 3 seconds delay
 	}
 	
 	@Override

@@ -146,7 +146,8 @@ dependencies {
 	implementation 'io.appmetrica.analytics:analytics:7.14.0'
 	// Yandex Mobile Ads SDK
 	implementation 'com.yandex.android:mobileads:7.18.1'
-	// RuStore Pay SDK - BOM версия
+	// RuStore SDKs - BOM версия
 	implementation(platform("ru.rustore.sdk:bom:2025.11.01"))
 	implementation("ru.rustore.sdk:pay")
+	implementation("ru.rustore.sdk:review")
 }
