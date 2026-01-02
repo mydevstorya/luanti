@@ -16,10 +16,24 @@ local function get_subscription_formspec(data)
 		if success then
 			-- Purchase successful! Close this dialog
 			data.purchase_success = true
+			-- Analytics: successful purchase
+			if core.send_analytics_event then
+				core.send_analytics_event("subscription_purchase_success", "")
+			end
 		else
 			-- Purchase failed or cancelled
 			if error_msg and error_msg ~= "Покупка отменена" then
 				data.purchase_error = error_msg
+				-- Analytics: failed purchase with reason
+				if core.send_analytics_event then
+					local params = core.write_json({reason = error_msg})
+					core.send_analytics_event("subscription_purchase_failed", params)
+				end
+			else
+				-- Analytics: cancelled purchase
+				if core.send_analytics_event then
+					core.send_analytics_event("subscription_purchase_cancelled", "")
+				end
 			end
 		end
 	end
@@ -238,6 +252,13 @@ end
 ---@param pending_package table|nil Package that user tried to install
 ---@param original_install_func function|nil Original install function to call after purchase
 function show_subscription_dialog(parent, pending_package, original_install_func)
+	-- Analytics: dialog opened
+	if core.send_analytics_event then
+		local source = pending_package and "mod_install" or "menu"
+		local params = core.write_json({source = source})
+		core.send_analytics_event("subscription_dialog_opened", params)
+	end
+	
 	local dlg = create_subscription_dialog(pending_package, parent, original_install_func)
 	dlg:set_parent(parent)
 	parent:hide()
