@@ -5,6 +5,9 @@
 -- Beautiful mobile-first subscription offer dialog
 
 local function get_subscription_formspec(data)
+	-- Poll all async operations (restore, product info, state changes)
+	vococraft_subscription.poll_async_results()
+	
 	-- Check if purchase operation completed (for async operations)
 	-- Always check - even if purchase_in_progress is false, we might have a pending result
 	local success, error_msg = vococraft_subscription.check_purchase_result()
@@ -101,9 +104,15 @@ local function get_subscription_formspec(data)
 		", has_promo=" .. tostring(info.has_promo) ..
 		", promo_days=" .. tostring(info.promo_days) ..
 		", promo_price=" .. tostring(info.promo_price_formatted) ..
-		", monthly_price=" .. tostring(info.monthly_price_formatted))
+		", monthly_price=" .. tostring(info.monthly_price_formatted) ..
+		", product_info_fetched=" .. tostring(info.product_info_fetched))
 	
-	if info.has_trial and info.trial_days > 0 then
+	-- Check if product info is loaded
+	if not info.product_info_fetched then
+		-- Product info still loading
+		offer_price = "Загрузка..."
+		offer_period = ""
+	elseif info.has_trial and info.trial_days > 0 then
 		-- Free trial period
 		offer_price = info.trial_price_formatted ~= "" and info.trial_price_formatted or "Бесплатно"
 		offer_period = "/" .. info.trial_days .. " дн. пробный период"
@@ -112,8 +121,8 @@ local function get_subscription_formspec(data)
 		offer_price = info.promo_price_formatted
 		offer_period = "/" .. info.promo_days .. " дн. стартовый период"
 	else
-		-- Main price
-		offer_price = info.monthly_price_formatted
+		-- Main price - show fallback if empty
+		offer_price = info.monthly_price_formatted ~= "" and info.monthly_price_formatted or "—"
 		offer_period = "/месяц"
 	end
 	
@@ -205,6 +214,20 @@ function create_subscription_dialog(pending_package, pending_parent, original_in
 	dlg.data.pending_package = pending_package
 	dlg.data.pending_parent = pending_parent
 	dlg.data.original_install_func = original_install_func
+	
+	-- Listen for product info loaded event to refresh UI
+	local listener_id
+	listener_id = vococraft_subscription.add_listener(function(event, data)
+		if event == "product_info_loaded" then
+			core.log("action", "[Vococraft Dialog] Product info loaded, refreshing UI")
+			ui.update()
+			-- Remove listener after product info is loaded
+			-- (listener_id will be used next time dialog is opened if needed)
+		end
+	end)
+	
+	-- Store listener_id so we can clean it up if needed
+	dlg.data.subscription_listener_id = listener_id
 	
 	return dlg
 end

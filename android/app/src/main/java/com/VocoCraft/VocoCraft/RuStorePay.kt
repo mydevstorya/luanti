@@ -219,8 +219,9 @@ class RuStorePay private constructor(private val context: Context) {
     private var promoDurationDays = 0
     private var productInfoFetched = false
 
-    // Async operation state
-    private val operationInProgress = AtomicBoolean(false)
+    // Async operation state - separate flags for different operations
+    private val operationInProgress = AtomicBoolean(false)  // For subscription check/purchase
+    private val productFetchInProgress = AtomicBoolean(false)  // For product info fetch
     private val lastError = AtomicReference("")
     private val lastOperationResult = AtomicReference(RESULT_NONE)
 
@@ -282,6 +283,8 @@ class RuStorePay private constructor(private val context: Context) {
                         is PurchaseAvailabilityResult.Available -> {
                             sdkAvailable = true
                             Log.i(TAG, "RuStore Pay SDK available")
+                            // Immediately fetch product info after SDK is ready
+                            doFetchProductInfo()
                         }
                         is PurchaseAvailabilityResult.Unavailable -> {
                             sdkAvailable = false
@@ -306,12 +309,19 @@ class RuStorePay private constructor(private val context: Context) {
     private fun doFetchProductInfo() {
         Log.i(TAG, "fetchProductInfo() for $SUBSCRIPTION_PRODUCT_ID")
 
-        if (operationInProgress.get()) {
-            Log.w(TAG, "Operation already in progress")
+        // Use separate flag for product fetch - doesn't conflict with subscription operations
+        if (productFetchInProgress.get()) {
+            Log.w(TAG, "Product fetch already in progress")
+            return
+        }
+        
+        // Skip if already fetched
+        if (productInfoFetched) {
+            Log.d(TAG, "Product info already fetched")
             return
         }
 
-        operationInProgress.set(true)
+        productFetchInProgress.set(true)
 
         try {
             val productIds = listOf(ProductId(SUBSCRIPTION_PRODUCT_ID))
@@ -319,34 +329,32 @@ class RuStorePay private constructor(private val context: Context) {
             // Use getProductInteractor().getProducts() according to docs
             RuStorePayClient.instance.getProductInteractor().getProducts(productIds)
                 .addOnSuccessListener { products: List<Product> ->
-                    operationInProgress.set(false)
+                    productFetchInProgress.set(false)
 
                     if (products.isEmpty()) {
                         Log.w(TAG, "No products returned from RuStore")
-                        lastError.set("Product not found")
-                        lastOperationResult.set(RESULT_ERROR)
+                        // Don't set operation result - this is separate from subscription operations
                         return@addOnSuccessListener
                     }
 
                     val product = products.first()
                     parseProductInfo(product)
                     productInfoFetched = true
-                    lastOperationResult.set(RESULT_SUCCESS)
+                    // Don't set lastOperationResult - product fetch is independent operation
 
                     Log.i(TAG, "Product info fetched: price=${monthlyPriceFormatted}, " +
                             "trial=${trialDurationDays}d at ${trialPriceFormatted}, " +
                             "promo=${promoDurationDays}d at ${promoPriceFormatted}")
                 }
                 .addOnFailureListener { error: Throwable ->
-                    operationInProgress.set(false)
+                    productFetchInProgress.set(false)
                     lastError.set(error.message ?: "Unknown error")
-                    lastOperationResult.set(RESULT_ERROR)
+                    // Don't set RESULT_ERROR - this is a separate operation
                     Log.e(TAG, "Failed to fetch product info: ${error.message}")
                 }
         } catch (e: Exception) {
-            operationInProgress.set(false)
+            productFetchInProgress.set(false)
             lastError.set(e.message ?: "Exception")
-            lastOperationResult.set(RESULT_ERROR)
             Log.e(TAG, "Exception fetching product info: ${e.message}")
         }
     }
@@ -405,7 +413,7 @@ class RuStorePay private constructor(private val context: Context) {
     private fun formatPrice(priceMinor: Int, currency: String): String {
         val priceDecimal = priceMinor / 100.0
         val currencySymbol = when (currency.uppercase()) {
-            "RUB" -> "₽"
+            "RUB" -> "руб."
             "USD" -> "$"
             "EUR" -> "€"
             else -> currency
