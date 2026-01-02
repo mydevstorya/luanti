@@ -40,6 +40,13 @@ dofile(menupath .. DIR_DELIM .. "async_event.lua")
 dofile(menupath .. DIR_DELIM .. "common.lua")
 dofile(menupath .. DIR_DELIM .. "serverlistmgr.lua")
 dofile(menupath .. DIR_DELIM .. "game_theme.lua")
+
+-- === VOCOCRAFT: Load subscription module BEFORE content (needed for mod install check) ===
+dofile(menupath .. DIR_DELIM .. "vococraft" .. DIR_DELIM .. "subscription.lua")
+dofile(menupath .. DIR_DELIM .. "vococraft" .. DIR_DELIM .. "dlg_subscription.lua")
+dofile(menupath .. DIR_DELIM .. "vococraft" .. DIR_DELIM .. "content_filter.lua")
+-- === END VOCOCRAFT ===
+
 dofile(menupath .. DIR_DELIM .. "content" .. DIR_DELIM .. "init.lua")
 
 dofile(menupath .. DIR_DELIM .. "dlg_config_world.lua")

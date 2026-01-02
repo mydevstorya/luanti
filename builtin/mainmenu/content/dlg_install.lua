@@ -233,7 +233,8 @@ function create_install_dialog(package)
 end
 
 
-function install_or_update_package(parent, package)
+-- === VOCOCRAFT: Original install function without subscription check ===
+local function install_or_update_package_internal(parent, package)
 	local install_parent
 	if package.type == "mod" then
 		install_parent = core.get_modpath()
@@ -273,3 +274,21 @@ function install_or_update_package(parent, package)
 		on_confirm()
 	end
 end
+-- === END VOCOCRAFT ===
+
+
+-- === VOCOCRAFT: Main install function with subscription check for all content ===
+function install_or_update_package(parent, package)
+	-- Check if subscription is required (for all downloadable content)
+	if vococraft_subscription then
+		if not vococraft_subscription.has_subscription() then
+			-- Show subscription dialog
+			show_subscription_dialog(parent, package, install_or_update_package_internal)
+			return
+		end
+	end
+	
+	-- Proceed with installation
+	install_or_update_package_internal(parent, package)
+end
+-- === END VOCOCRAFT ===

@@ -87,12 +87,20 @@ end
 --------------------------------------------------------------------------------
 local function get_formspec(tabview, name, tabdata)
 	local W = 16
+	
+	-- === VOCOCRAFT: Increase height if premium button is shown ===
 	local H = 9.5
+	local PREMIUM_BTN_H = 0
+	if vococraft_subscription and not vococraft_subscription.has_subscription() then
+		PREMIUM_BTN_H = 1.0
+		H = 10.5  -- Increase total height to fit premium button
+	end
+	-- === END VOCOCRAFT ===
 
 	local HEADER_H = 0.7
 	local TAB_H = 0.9
 	local CONTENT_Y = HEADER_H + TAB_H
-	local CONTENT_H = H - CONTENT_Y
+	local CONTENT_H = H - CONTENT_Y - PREMIUM_BTN_H
 
 	local fs = {}
 
@@ -287,6 +295,24 @@ local function get_formspec(tabview, name, tabdata)
 		table.insert(fs, servers_fs)
 	end
 
+	-- === VOCOCRAFT: Show "Unlock Premium" button if no subscription ===
+	if vococraft_subscription and not vococraft_subscription.has_subscription() then
+		local sub_btn_y = H - 0.85
+		local sub_btn_h = 0.7
+		local sub_btn_x = 0.3
+		local sub_btn_w = W - 0.6
+		
+		-- Background box for button area
+		table.insert(fs, "box[0," .. (H - 0.95) .. ";" .. W .. ",0.95;#1e1e1e]")
+		
+		-- Purple premium button at bottom - bright and noticeable
+		table.insert(fs, "style[btn_unlock_premium;bgcolor=#9c27b0;border=true;font_size=*1.2;textcolor=#ffffff]")
+		table.insert(fs, "style[btn_unlock_premium:hovered;bgcolor=#ba68c8]")
+		table.insert(fs, "style[btn_unlock_premium:pressed;bgcolor=#7b1fa2]")
+		table.insert(fs, "button[" .. sub_btn_x .. "," .. sub_btn_y .. ";" .. sub_btn_w .. "," .. sub_btn_h .. ";btn_unlock_premium;★ " .. fgettext("Unlock Premium - play with mods and no ads") .. " ★]")
+	end
+	-- === END VOCOCRAFT ===
+
 	return table.concat(fs), true
 end
 
@@ -295,6 +321,16 @@ end
 --------------------------------------------------------------------------------
 local function main_button_handler(this, fields, name, tabdata)
 	assert(name == "local")
+
+	-- === VOCOCRAFT: Handle unlock premium button ===
+	if fields.btn_unlock_premium then
+		local dlg = create_subscription_dialog(nil, nil, nil)
+		dlg:set_parent(this)
+		this:hide()
+		dlg:show()
+		return true
+	end
+	-- === END VOCOCRAFT ===
 
 	-- Settings button handler
 	if fields.btn_settings then

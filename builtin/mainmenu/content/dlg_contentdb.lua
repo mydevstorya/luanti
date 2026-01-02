@@ -21,7 +21,7 @@ local auto_install_spec = nil
 
 local filter_type_names = {
 	{ "type_all", nil },
-	{ "type_game", "game" },
+	-- { "type_game", "game" }, -- VOCOCRAFT: Games tab hidden
 	{ "type_mod", "mod" },
 	{ "type_txp", "txp" },
 }
@@ -200,7 +200,7 @@ local function get_formspec(dlgdata)
 	local H = size.y - window_padding.y * 2
 
 	local category_x = 0
-	local number_category_buttons = 4
+	local number_category_buttons = 3 -- VOCOCRAFT: reduced from 4 (no Games)
 	local max_button_w = (W - 0.375 - 0.25 - 7) / number_category_buttons
 	local category_button_w = math.min(max_button_w, 3)
 	local function make_category_button(name, label, selected)
@@ -223,9 +223,9 @@ local function get_formspec(dlgdata)
 
 		"container[", window_padding.x, ",", window_padding.y, "]",
 
-		-- Top-left: categories
+		-- Top-left: categories (VOCOCRAFT: Games hidden)
 		make_category_button("type_all", fgettext("All"), selected_type == nil),
-		make_category_button("type_game", fgettext("Games"), selected_type == "game"),
+		-- make_category_button("type_game", fgettext("Games"), selected_type == "game"),
 		make_category_button("type_mod", fgettext("Mods"), selected_type == "mod"),
 		make_category_button("type_txp", fgettext("Texture Packs"), selected_type == "txp"),
 

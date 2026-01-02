@@ -540,8 +540,28 @@ end
 
 
 function contentdb.filter_packages(query, by_type)
+	-- VOCOCRAFT: Helper function to check content filter
+	local function is_package_allowed(package)
+		-- Exclude games
+		if package.type == "game" then
+			return false
+		end
+		-- Check content filter (Russian Federation compliance)
+		if vococraft_content_filter and vococraft_content_filter.should_filter_package(package) then
+			return false
+		end
+		return true
+	end
+
+	-- VOCOCRAFT: Never show games, even when "All" is selected
 	if query == "" and by_type == nil then
-		contentdb.packages = contentdb.packages_full
+		-- Filter out games and prohibited content from full list
+		contentdb.packages = {}
+		for _, package in pairs(contentdb.packages_full) do
+			if is_package_allowed(package) then
+				table.insert(contentdb.packages, package)
+			end
+		end
 		return
 	end
 
@@ -569,7 +589,9 @@ function contentdb.filter_packages(query, by_type)
 
 	contentdb.packages = {}
 	for _, package in pairs(contentdb.packages_full) do
-		if (query == "" or matches_keywords(package)) and
+		-- VOCOCRAFT: Always exclude games and prohibited content
+		if is_package_allowed(package) and
+				(query == "" or matches_keywords(package)) and
 				(by_type == nil or package.type == by_type) then
 			table.insert(contentdb.packages, package)
 		end
