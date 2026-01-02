@@ -1143,7 +1143,7 @@ msgstr "Прошлые основные разработчики"
 
 #: builtin/mainmenu/tab_about.lua
 msgid "Share debug log"
-msgstr "Поделиться журналом отладки"
+msgstr "Отправить лог"
 
 #: builtin/mainmenu/tab_content.lua
 msgid "Browse online content"
