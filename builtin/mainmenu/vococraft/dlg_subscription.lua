@@ -5,6 +5,23 @@
 -- Beautiful mobile-first subscription offer dialog
 
 local function get_subscription_formspec(data)
+	-- Check if purchase operation completed (for async operations)
+	if vococraft_subscription.purchase_in_progress then
+		local success, error_msg = vococraft_subscription.check_purchase_result()
+		if success ~= nil then
+			-- Operation completed
+			if success then
+				-- Purchase successful! Close this dialog
+				data.purchase_success = true
+			else
+				-- Purchase failed or cancelled
+				if error_msg and error_msg ~= "Покупка отменена" then
+					data.purchase_error = error_msg
+				end
+			end
+		end
+	end
+	
 	-- Fixed dimensions for consistent look
 	local w = 10
 	local h = 6.8
@@ -69,15 +86,36 @@ local function get_subscription_formspec(data)
 			core.colorize(accent_gold, "+ "),
 			core.colorize(text_light, "Больше места без баннера"), "]",
 		
-		-- Pricing section - only trial
+		-- Pricing section
 		"box[", padding, ",4.1;", content_w, ",0.7;", bg_card, "]",
 		
-		-- Trial offer (highlighted)
+		-- Offer (highlighted) - show trial, promo or main price
 		"box[", padding + 0.1, ",4.2;", content_w - 0.2, ",0.5;#ffc10733]",
+	}
+	
+	-- Determine what price/period to show
+	local offer_price = ""
+	local offer_period = ""
+	
+	if info.has_trial and info.trial_days > 0 then
+		-- Free trial period
+		offer_price = info.trial_price_formatted ~= "" and info.trial_price_formatted or "Бесплатно"
+		offer_period = "/" .. info.trial_days .. " дн. пробный период"
+	elseif info.has_promo and info.promo_days > 0 then
+		-- Discounted intro period
+		offer_price = info.promo_price_formatted
+		offer_period = "/" .. info.promo_days .. " дн. стартовый период"
+	else
+		-- Main price
+		offer_price = info.monthly_price_formatted
+		offer_period = "/месяц"
+	end
+	
+	table.insert(formspec, table.concat({
 		"label[", padding + 0.3, ",4.47;",
 			core.colorize(accent_gold, "Начни за:  "),
-			core.colorize(text_white, info.trial_price_formatted .. ""),
-			core.colorize(text_muted, "/пробная неделя"), "]",
+			core.colorize(text_white, offer_price),
+			core.colorize(text_muted, offer_period), "]",
 		
 		-- CTA Button - SOLID PURPLE with box behind
 		"box[", padding, ",5.0;", content_w, ",1.05;#9c27b0]",
@@ -86,14 +124,38 @@ local function get_subscription_formspec(data)
 		"style[btn_subscribe:pressed;bgcolor=#7b1fa2]",
 		"button[", padding, ",5.0;", content_w, ",1.05;btn_subscribe;",
 			"★ Получить доступ ★]",
-	}
+	}))
 	
 	return table.concat(formspec)
 end
 
 
 local function handle_subscription_buttons(this, fields)
+	-- Check for completed async purchase (called when formspec updates)
+	if this.data.purchase_success then
+		core.log("action", "[Vococraft] Subscription purchased successfully (async)")
+		this:delete()
+		
+		-- If there's a pending package to install, proceed with it
+		if this.data.pending_package and this.data.pending_parent then
+			local package = this.data.pending_package
+			if this.data.original_install_func then
+				this.data.original_install_func(this.data.pending_parent, package)
+			end
+		end
+		return true
+	end
+	
+	if this.data.purchase_error then
+		gamedata.errormessage = fgettext_ne("Subscription purchase error") .. ": " .. this.data.purchase_error
+		this.data.purchase_error = nil
+		ui.update()
+		return true
+	end
+	
 	if fields.btn_close or fields.quit then
+		-- Reset purchase state if user closes dialog during purchase
+		vococraft_subscription.purchase_in_progress = false
 		this:delete()
 		return true
 	end
@@ -105,31 +167,8 @@ local function handle_subscription_buttons(this, fields)
 			return true -- Ignore if already purchasing
 		end
 		
-		-- Attempt to purchase subscription
-		vococraft_subscription.purchase(function(success, error_msg)
-			if success then
-				core.log("action", "[Vococraft] Subscription purchased successfully")
-				this:delete()
-				
-				-- If there's a pending package to install, proceed with it
-				if this.data.pending_package and this.data.pending_parent then
-					-- Retry the installation now that we have subscription
-					local package = this.data.pending_package
-					local parent = this.data.pending_parent
-					
-					-- Use the original install function
-					if this.data.original_install_func then
-						this.data.original_install_func(parent, package)
-					end
-				end
-			else
-				if error_msg and error_msg ~= "Покупка отменена" then
-					-- Show error only if it's not a user cancellation
-					gamedata.errormessage = fgettext_ne("Subscription purchase error") .. ": " .. error_msg
-				end
-			end
-			ui.update()
-		end)
+		-- Start purchase (async, result will be checked in get_subscription_formspec)
+		vococraft_subscription.purchase()
 		return true
 	end
 	

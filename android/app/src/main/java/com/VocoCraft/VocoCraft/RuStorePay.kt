@@ -368,7 +368,12 @@ class RuStorePay private constructor(private val context: Context) {
                 when (period) {
                     is TrialPeriod -> {
                         // price is Int in minimum units, currency is String
-                        trialPriceFormatted = formatPrice(period.price, period.currency)
+                        // If price is 0, show "Бесплатно" instead of "0.00 ₽"
+                        trialPriceFormatted = if (period.price == 0) {
+                            "Бесплатно"
+                        } else {
+                            formatPrice(period.price, period.currency)
+                        }
                         trialDurationDays = parseDurationDays(period.duration)
                         Log.d(TAG, "Trial period: ${trialDurationDays}d, price=$trialPriceFormatted")
                     }
