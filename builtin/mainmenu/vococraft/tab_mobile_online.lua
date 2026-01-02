@@ -388,7 +388,11 @@ local function handle_buttons(fields, tabdata)
 				if core.send_analytics_event then
 					local params = "address=" .. server.address
 					params = params .. ",name=" .. core.formspec_escape(server.name or "")
-					core.send_analytics_event("connect_to_remote_server", params)
+					if server.is_lan then
+						core.send_analytics_event("connect_to_lan_server", params)
+					else
+						core.send_analytics_event("connect_to_remote_server", params)
+					end
 				end
 				
 				core.start()
@@ -435,7 +439,11 @@ local function handle_buttons(fields, tabdata)
 			if core.send_analytics_event then
 				local params = "address=" .. server.address
 				params = params .. ",name=" .. core.formspec_escape(server.name or "")
-				core.send_analytics_event("connect_to_remote_server", params)
+				if server.is_lan then
+					core.send_analytics_event("connect_to_lan_server", params)
+				else
+					core.send_analytics_event("connect_to_remote_server", params)
+				end
 			end
 			
 			core.start()

@@ -519,6 +519,17 @@ function create_contentdb_dlg(type, install_spec)
 		auto_install_spec = install_spec
 	end
 
+	-- Analytics: content browser opened
+	local content_type = type or "all"
+	core.log("action", "[Vococraft Analytics] Sending content_browser_opened, type=" .. content_type)
+	if core.send_analytics_event then
+		local params = "type=" .. content_type
+		local result = core.send_analytics_event("content_browser_opened", params)
+		core.log("action", "[Vococraft Analytics] Result: " .. tostring(result))
+	else
+		core.log("warning", "[Vococraft Analytics] core.send_analytics_event is nil!")
+	end
+
 	load()
 
 	local dlg = dialog_create("contentdb",

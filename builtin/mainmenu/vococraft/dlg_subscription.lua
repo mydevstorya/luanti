@@ -17,22 +17,34 @@ local function get_subscription_formspec(data)
 			-- Purchase successful! Close this dialog
 			data.purchase_success = true
 			-- Analytics: successful purchase
+			core.log("action", "[Vococraft Analytics] Sending subscription_purchase_success")
 			if core.send_analytics_event then
-				core.send_analytics_event("subscription_purchase_success", "")
+				local result = core.send_analytics_event("subscription_purchase_success", "")
+				core.log("action", "[Vococraft Analytics] Result: " .. tostring(result))
+			else
+				core.log("warning", "[Vococraft Analytics] core.send_analytics_event is nil!")
 			end
 		else
 			-- Purchase failed or cancelled
 			if error_msg and error_msg ~= "Покупка отменена" then
 				data.purchase_error = error_msg
 				-- Analytics: failed purchase with reason
+				core.log("action", "[Vococraft Analytics] Sending subscription_purchase_failed: " .. tostring(error_msg))
 				if core.send_analytics_event then
 					local params = core.write_json({reason = error_msg})
-					core.send_analytics_event("subscription_purchase_failed", params)
+					local result = core.send_analytics_event("subscription_purchase_failed", params)
+					core.log("action", "[Vococraft Analytics] Result: " .. tostring(result))
+				else
+					core.log("warning", "[Vococraft Analytics] core.send_analytics_event is nil!")
 				end
 			else
 				-- Analytics: cancelled purchase
+				core.log("action", "[Vococraft Analytics] Sending subscription_purchase_cancelled")
 				if core.send_analytics_event then
-					core.send_analytics_event("subscription_purchase_cancelled", "")
+					local result = core.send_analytics_event("subscription_purchase_cancelled", "")
+					core.log("action", "[Vococraft Analytics] Result: " .. tostring(result))
+				else
+					core.log("warning", "[Vococraft Analytics] core.send_analytics_event is nil!")
 				end
 			end
 		end
@@ -253,10 +265,14 @@ end
 ---@param original_install_func function|nil Original install function to call after purchase
 function show_subscription_dialog(parent, pending_package, original_install_func)
 	-- Analytics: dialog opened
+	local source = pending_package and "mod_install" or "menu"
+	core.log("action", "[Vococraft Analytics] Sending subscription_dialog_opened, source=" .. source)
 	if core.send_analytics_event then
-		local source = pending_package and "mod_install" or "menu"
 		local params = core.write_json({source = source})
-		core.send_analytics_event("subscription_dialog_opened", params)
+		local result = core.send_analytics_event("subscription_dialog_opened", params)
+		core.log("action", "[Vococraft Analytics] Result: " .. tostring(result))
+	else
+		core.log("warning", "[Vococraft Analytics] core.send_analytics_event is nil!")
 	end
 	
 	local dlg = create_subscription_dialog(pending_package, parent, original_install_func)

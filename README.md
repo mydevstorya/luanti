@@ -86,6 +86,8 @@ Locations:
 
 Where each location is on each platform:
 
+
+cmake --build . --config Release   
 * Windows .zip / RUN_IN_PLACE source:
     * `bin`   = `bin`
     * `share` = `.`

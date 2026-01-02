@@ -294,7 +294,7 @@ local function get_formspec(tabview, name, tabdata)
 			local small_btn_w = (field_w - 0.15) / 2
 			table.insert(fs, "style[world_delete;bgcolor=#555555;font_size=*1.0]")
 			table.insert(fs, "button[" .. field_x .. "," .. del_edit_y .. ";" .. small_btn_w .. ",0.55;world_delete;" .. fgettext("Delete") .. "]")
-			table.insert(fs, "style[world_details;bgcolor=#555555;font_size=*1.0]")
+			table.insert(fs, "style[world_details;bgcolor=#ffc107;font_size=*1.0]")
 			table.insert(fs, "button[" .. (field_x + small_btn_w + 0.15) .. "," .. del_edit_y .. ";" .. small_btn_w .. ",0.55;world_details;" .. fgettext("Mods") .. "]")
 
 		else
@@ -343,10 +343,7 @@ local function main_button_handler(this, fields, name, tabdata)
 
 	-- === VOCOCRAFT: Handle unlock premium button ===
 	if fields.btn_unlock_premium then
-		local dlg = create_subscription_dialog(nil, nil, nil)
-		dlg:set_parent(this)
-		this:hide()
-		dlg:show()
+		show_subscription_dialog(this, nil, nil)
 		return true
 	end
 	-- === END VOCOCRAFT ===
@@ -510,11 +507,8 @@ local function main_button_handler(this, fields, name, tabdata)
 			gamedata.singleplayer = true
 		end
 
-		-- Send analytics events for game start (Android only)
+		-- Send analytics event for game start (Android only)
 		if core.send_analytics_event then
-			-- Local server connection event
-			core.send_analytics_event("connect_to_local_server", "")
-			
 			-- Game started event with details
 			local params = ""
 			if game_obj then

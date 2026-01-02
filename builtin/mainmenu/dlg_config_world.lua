@@ -264,6 +264,7 @@ local function get_formspec(data)
 		fgettext("Save") .. "]" ..
 		"button[5.75,7;2.5,0.5;btn_config_world_cancel;" ..
 		fgettext("Cancel") .. "]" ..
+		"style[btn_config_world_cdb;bgcolor=#ffc107]" ..
 		"button[9.25,7;2.5,0.5;btn_config_world_cdb;" ..
 		fgettext("Find More Mods") .. "]"
 
