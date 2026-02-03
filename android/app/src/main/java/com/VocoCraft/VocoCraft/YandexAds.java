@@ -181,7 +181,7 @@ public class YandexAds {
      */
     private static void loadInterstitial() {
         // Skip loading ads if user has active subscription
-        if (RuStorePay.hasSubscription()) {
+        if (YooKassaPay.hasPurchase()) {
             Log.d(TAG, "loadInterstitial: skipped - user has subscription");
             return;
         }
@@ -215,7 +215,7 @@ public class YandexAds {
      */
     public static boolean tryShowInterstitial(Activity activity, InterstitialCallback callback) {
         // Skip showing ads if user has active subscription
-        if (RuStorePay.hasSubscription()) {
+        if (YooKassaPay.hasPurchase()) {
             Log.d(TAG, "tryShowInterstitial: skipped - user has subscription");
             if (callback != null) {
                 callback.onInterstitialDismissed(); // Treat as dismissed so game continues
@@ -337,7 +337,7 @@ public class YandexAds {
      */
     public static void showBanner(Activity activity, ViewGroup gameLayout, View gameView) {
         // Skip showing ads if user has active subscription
-        if (RuStorePay.hasSubscription()) {
+        if (YooKassaPay.hasPurchase()) {
             Log.d(TAG, "showBanner: skipped - user has subscription");
             return;
         }
@@ -471,7 +471,7 @@ public class YandexAds {
      */
     private static void scheduleBannerRetry(Activity activity, ViewGroup gameLayout, View gameView) {
         // Don't schedule retry if user has subscription
-        if (RuStorePay.hasSubscription()) {
+        if (YooKassaPay.hasPurchase()) {
             Log.d(TAG, "scheduleBannerRetry: skipped - user has subscription");
             return;
         }
@@ -540,7 +540,7 @@ public class YandexAds {
      */
     private static void showBannerInternal(Activity activity, ViewGroup gameLayout, View gameView) {
         // Skip if user has subscription
-        if (RuStorePay.hasSubscription()) {
+        if (YooKassaPay.hasPurchase()) {
             Log.d(TAG, "showBannerInternal: skipped - user has subscription");
             return;
         }

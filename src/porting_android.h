@@ -141,97 +141,113 @@ bool isInterstitialReady();
  */
 bool tryShowInterstitial();
 
-// ==================== RuStore Pay SDK ====================
-
-/**
- * Check if user has active subscription (from cache)
- * @return true if subscribed
- */
+// ==================== RuStore Pay SDK (commented out - replaced by YooKassa) ====================
+/*
 bool rustoreHasSubscription();
-
-/**
- * Start async subscription check from server
- */
 void rustoreCheckSubscriptionAsync();
-
-/**
- * Start subscription purchase flow
- */
 void rustorePurchaseSubscription();
-
-/**
- * Get subscription expiration date as Unix timestamp (seconds)
- */
 long rustoreGetExpirationDate();
-
-/**
- * Get formatted monthly price
- */
 std::string rustoreGetMonthlyPrice();
-
-/**
- * Get formatted trial price
- */
 std::string rustoreGetTrialPrice();
-
-/**
- * Get trial duration in days (parsed from ISO 8601)
- */
 int rustoreGetTrialDays();
-
-/**
- * Get formatted promo price (if available, empty string otherwise)
- */
 std::string rustoreGetPromoPrice();
-
-/**
- * Get promo duration in days (parsed from ISO 8601)
- */
 int rustoreGetPromoDays();
+bool rustoreIsProductInfoFetched();
+bool rustoreIsOperationInProgress();
+int rustoreGetLastOperationResult();
+std::string rustoreGetLastError();
+void rustoreClearOperationResult();
+void rustoreRestorePurchases();
+void rustoreFetchProductInfo();
+void rustoreClearCache();
+*/
+
+// ==================== YooKassa Pay SDK ====================
 
 /**
- * Check if product info has been successfully fetched from RuStore
+ * Check if user has purchased full version (from cache)
+ * @return true if purchased
  */
-bool rustoreIsProductInfoFetched();
+bool yookassaHasPurchase();
+
+/**
+ * Start purchase flow with YooKassa tokenization
+ * @param amount Price amount as string (e.g., "249.00")
+ * @param currency Currency code (e.g., "RUB")
+ * @param title Product title
+ * @param description Product description
+ */
+void yookassaStartPurchase(const std::string &amount, const std::string &currency,
+                           const std::string &title, const std::string &description);
+
+/**
+ * Get unique device identifier (similar to Unity's SystemInfo.deviceUniqueIdentifier)
+ */
+std::string yookassaGetDeviceUuid();
+
+/**
+ * Get formatted product price
+ */
+std::string yookassaGetProductPrice();
+
+/**
+ * Check if product info has been successfully fetched from backend
+ */
+bool yookassaIsProductInfoFetched();
 
 /**
  * Check if async operation is in progress
  */
-bool rustoreIsOperationInProgress();
+bool yookassaIsOperationInProgress();
 
 /**
  * Get last operation result
- * 0 = NONE, 1 = SUCCESS, 2 = ERROR, 3 = CANCELLED, 4 = NO_INTERNET, 5 = NOT_AVAILABLE
+ * 0 = NONE, 1 = SUCCESS, 2 = ERROR, 3 = CANCELLED, 4 = PENDING_CONFIRMATION, 5 = CONFIRMATION_NEEDED
  */
-int rustoreGetLastOperationResult();
+int yookassaGetLastOperationResult();
 
 /**
  * Get last error message
  */
-std::string rustoreGetLastError();
+std::string yookassaGetLastError();
 
 /**
  * Clear last operation result
  */
-void rustoreClearOperationResult();
+void yookassaClearOperationResult();
 
 /**
- * Restore purchases (call on app start)
+ * Restore purchases from backend
  */
-void rustoreRestorePurchases();
+void yookassaRestorePurchases();
 
 /**
- * Fetch product info (prices) from RuStore
+ * Fetch product info (prices) from backend
  */
-void rustoreFetchProductInfo();
+void yookassaFetchProductInfo();
 
 /**
- * Clear subscription cache (for testing)
+ * Clear purchase cache (for testing)
  */
-void rustoreClearCache();
+void yookassaClearCache();
 
 /**
- * Check if activity was resumed (e.g. after returning from RuStore payment)
+ * Get pending confirmation URL (for 3DS/SBP/SberPay)
+ */
+std::string yookassaGetPendingConfirmationUrl();
+
+/**
+ * Get pending payment method type
+ */
+std::string yookassaGetPendingPaymentMethodType();
+
+/**
+ * Start confirmation process (3DS/SBP/SberPay)
+ */
+void yookassaStartConfirmation(const std::string &confirmationUrl, const std::string &paymentMethodType);
+
+/**
+ * Check if activity was resumed (e.g. after returning from payment)
  * and clear the flag. Returns true if activity was resumed.
  */
 bool checkAndClearActivityResumedFlag();

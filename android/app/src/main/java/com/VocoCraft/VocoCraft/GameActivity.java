@@ -67,48 +67,64 @@ public class GameActivity extends SDLActivity {
 		// Initialize Yandex Mobile Ads
 		YandexAds.init(this);
 		
-		// Initialize RuStore Pay SDK
-		RuStorePay.init(this);
+		// Initialize RuStore Pay SDK (commented out, replaced by YooKassa)
+		// RuStorePay.init(this);
+		
+		// Initialize YooKassa Pay SDK
+		YooKassaPay.init(this);
 		
 		// Initialize RuStore Review (must be after RuStorePay)
-		RuStoreReview.init(this);
+		// RuStoreReview.init(this);
 		
 		// Handle deeplink if activity started from payment app
 		if (savedInstanceState == null) {
-			handleRuStoreIntent(getIntent());
+			handlePaymentIntent(getIntent());
 		}
 		
 		// Try to show review dialog after a short delay (let app fully load)
-		new Handler(Looper.getMainLooper()).postDelayed(() -> {
-			RuStoreReview.tryShowReview();
-		}, 3000); // 3 seconds delay
+		// new Handler(Looper.getMainLooper()).postDelayed(() -> {
+		// 	RuStoreReview.tryShowReview();
+		// }, 3000); // 3 seconds delay
 	}
 	
 	@Override
 	protected void onNewIntent(Intent intent) {
 		super.onNewIntent(intent);
 		// Handle deeplink when returning from payment app
-		handleRuStoreIntent(intent);
+		handlePaymentIntent(intent);
 	}
 	
 	@Override
 	protected void onResume() {
 		super.onResume();
-		// Notify native code that activity resumed (e.g. after returning from RuStore payment)
+		// Notify native code that activity resumed (e.g. after returning from payment)
 		// This triggers UI refresh in Lua to detect purchase completion
 		Log.d(TAG, "onResume - notifying native for UI refresh");
 		nativeOnActivityResumed();
 	}
 	
-	private void handleRuStoreIntent(Intent intent) {
+	@Override
+	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+		super.onActivityResult(requestCode, resultCode, data);
+		
+		// Forward YooKassa SDK results to handler
+		if (requestCode == YooKassaPay.REQUEST_CODE_TOKENIZE || 
+			requestCode == YooKassaPay.REQUEST_CODE_CONFIRM) {
+			YooKassaPay.handleActivityResult(requestCode, resultCode, data);
+		}
+	}
+	
+	private void handlePaymentIntent(Intent intent) {
 		if (intent == null) return;
 		
 		try {
-			// Pass to Kotlin wrapper which handles SDK calls
-			RuStorePay.onNewIntent(intent);
-			Log.d(TAG, "RuStore intent processed");
+			// RuStore intent handling (commented out)
+			// RuStorePay.onNewIntent(intent);
+			
+			// YooKassa deeplinks are handled by SDK automatically through intent-filter
+			Log.d(TAG, "Payment intent processed");
 		} catch (Exception e) {
-			Log.d(TAG, "No RuStore intent to process: " + e.getMessage());
+			Log.d(TAG, "No payment intent to process: " + e.getMessage());
 		}
 	}
 	

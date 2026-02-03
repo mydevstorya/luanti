@@ -1162,9 +1162,184 @@ int ModApiMainMenu::l_clear_lan_servers(lua_State *L)
 }
 
 /******************************************************************************/
-// RuStore Pay SDK functions
+// YooKassa Pay SDK functions
 /******************************************************************************/
 
+int ModApiMainMenu::l_yookassa_has_purchase(lua_State *L)
+{
+#ifdef __ANDROID__
+	lua_pushboolean(L, porting::yookassaHasPurchase());
+#else
+	lua_pushboolean(L, false);
+#endif
+	return 1;
+}
+
+int ModApiMainMenu::l_yookassa_start_purchase(lua_State *L)
+{
+#ifdef __ANDROID__
+	std::string amount = luaL_checkstring(L, 1);
+	std::string currency = luaL_checkstring(L, 2);
+	std::string title = luaL_checkstring(L, 3);
+	std::string description = luaL_checkstring(L, 4);
+	porting::yookassaStartPurchase(amount, currency, title, description);
+	lua_pushboolean(L, true);
+#else
+	lua_pushboolean(L, false);
+#endif
+	return 1;
+}
+
+int ModApiMainMenu::l_yookassa_get_device_uuid(lua_State *L)
+{
+#ifdef __ANDROID__
+	std::string uuid = porting::yookassaGetDeviceUuid();
+	lua_pushstring(L, uuid.c_str());
+#else
+	lua_pushstring(L, "");
+#endif
+	return 1;
+}
+
+int ModApiMainMenu::l_yookassa_get_product_price(lua_State *L)
+{
+#ifdef __ANDROID__
+	std::string price = porting::yookassaGetProductPrice();
+	lua_pushstring(L, price.c_str());
+#else
+	lua_pushstring(L, "249 ₽");
+#endif
+	return 1;
+}
+
+int ModApiMainMenu::l_yookassa_is_product_info_fetched(lua_State *L)
+{
+#ifdef __ANDROID__
+	lua_pushboolean(L, porting::yookassaIsProductInfoFetched());
+#else
+	lua_pushboolean(L, true);
+#endif
+	return 1;
+}
+
+int ModApiMainMenu::l_yookassa_is_operation_in_progress(lua_State *L)
+{
+#ifdef __ANDROID__
+	lua_pushboolean(L, porting::yookassaIsOperationInProgress());
+#else
+	lua_pushboolean(L, false);
+#endif
+	return 1;
+}
+
+int ModApiMainMenu::l_yookassa_get_last_operation_result(lua_State *L)
+{
+#ifdef __ANDROID__
+	lua_pushinteger(L, porting::yookassaGetLastOperationResult());
+#else
+	lua_pushinteger(L, 0);
+#endif
+	return 1;
+}
+
+int ModApiMainMenu::l_yookassa_get_last_error(lua_State *L)
+{
+#ifdef __ANDROID__
+	std::string error = porting::yookassaGetLastError();
+	lua_pushstring(L, error.c_str());
+#else
+	lua_pushstring(L, "");
+#endif
+	return 1;
+}
+
+int ModApiMainMenu::l_yookassa_clear_operation_result(lua_State *L)
+{
+#ifdef __ANDROID__
+	porting::yookassaClearOperationResult();
+#endif
+	return 0;
+}
+
+int ModApiMainMenu::l_yookassa_restore_purchases(lua_State *L)
+{
+#ifdef __ANDROID__
+	porting::yookassaRestorePurchases();
+	lua_pushboolean(L, true);
+#else
+	lua_pushboolean(L, false);
+#endif
+	return 1;
+}
+
+int ModApiMainMenu::l_yookassa_fetch_product_info(lua_State *L)
+{
+#ifdef __ANDROID__
+	porting::yookassaFetchProductInfo();
+	lua_pushboolean(L, true);
+#else
+	lua_pushboolean(L, false);
+#endif
+	return 1;
+}
+
+int ModApiMainMenu::l_yookassa_clear_cache(lua_State *L)
+{
+#ifdef __ANDROID__
+	porting::yookassaClearCache();
+#endif
+	return 0;
+}
+
+int ModApiMainMenu::l_yookassa_get_pending_confirmation_url(lua_State *L)
+{
+#ifdef __ANDROID__
+	std::string url = porting::yookassaGetPendingConfirmationUrl();
+	lua_pushstring(L, url.c_str());
+#else
+	lua_pushstring(L, "");
+#endif
+	return 1;
+}
+
+int ModApiMainMenu::l_yookassa_get_pending_payment_method_type(lua_State *L)
+{
+#ifdef __ANDROID__
+	std::string type = porting::yookassaGetPendingPaymentMethodType();
+	lua_pushstring(L, type.c_str());
+#else
+	lua_pushstring(L, "");
+#endif
+	return 1;
+}
+
+int ModApiMainMenu::l_yookassa_start_confirmation(lua_State *L)
+{
+#ifdef __ANDROID__
+	std::string url = luaL_checkstring(L, 1);
+	std::string type = luaL_checkstring(L, 2);
+	porting::yookassaStartConfirmation(url, type);
+	lua_pushboolean(L, true);
+#else
+	lua_pushboolean(L, false);
+#endif
+	return 1;
+}
+
+int ModApiMainMenu::l_check_activity_resumed(lua_State *L)
+{
+#ifdef __ANDROID__
+	lua_pushboolean(L, porting::checkAndClearActivityResumedFlag());
+#else
+	lua_pushboolean(L, false);
+#endif
+	return 1;
+}
+
+/******************************************************************************/
+// RuStore Pay SDK functions (commented out - replaced by YooKassa)
+/******************************************************************************/
+/*
 int ModApiMainMenu::l_rustore_has_subscription(lua_State *L)
 {
 #ifdef __ANDROID__
@@ -1309,16 +1484,6 @@ int ModApiMainMenu::l_rustore_clear_operation_result(lua_State *L)
 	return 0;
 }
 
-int ModApiMainMenu::l_check_activity_resumed(lua_State *L)
-{
-#ifdef __ANDROID__
-	lua_pushboolean(L, porting::checkAndClearActivityResumedFlag());
-#else
-	lua_pushboolean(L, false);
-#endif
-	return 1;
-}
-
 int ModApiMainMenu::l_rustore_restore_purchases(lua_State *L)
 {
 #ifdef __ANDROID__
@@ -1348,6 +1513,8 @@ int ModApiMainMenu::l_rustore_clear_cache(lua_State *L)
 #endif
 	return 0;
 }
+*/
+// End of RuStore Pay SDK functions (commented out)
 
 /******************************************************************************/
 int ModApiMainMenu::l_do_async_callback(lua_State *L)
@@ -1428,7 +1595,8 @@ void ModApiMainMenu::Initialize(lua_State *L, int top)
 	API_FCT(get_lan_servers);
 	API_FCT(clear_lan_servers);
 	
-	// RuStore Pay SDK
+	// RuStore Pay SDK (commented out - replaced by YooKassa)
+	/*
 	API_FCT(rustore_has_subscription);
 	API_FCT(rustore_check_subscription_async);
 	API_FCT(rustore_purchase_subscription);
@@ -1446,6 +1614,24 @@ void ModApiMainMenu::Initialize(lua_State *L, int top)
 	API_FCT(rustore_restore_purchases);
 	API_FCT(rustore_fetch_product_info);
 	API_FCT(rustore_clear_cache);
+	*/
+	
+	// YooKassa Pay SDK
+	API_FCT(yookassa_has_purchase);
+	API_FCT(yookassa_start_purchase);
+	API_FCT(yookassa_get_device_uuid);
+	API_FCT(yookassa_get_product_price);
+	API_FCT(yookassa_is_product_info_fetched);
+	API_FCT(yookassa_is_operation_in_progress);
+	API_FCT(yookassa_get_last_operation_result);
+	API_FCT(yookassa_get_last_error);
+	API_FCT(yookassa_clear_operation_result);
+	API_FCT(yookassa_restore_purchases);
+	API_FCT(yookassa_fetch_product_info);
+	API_FCT(yookassa_clear_cache);
+	API_FCT(yookassa_get_pending_confirmation_url);
+	API_FCT(yookassa_get_pending_payment_method_type);
+	API_FCT(yookassa_start_confirmation);
 	API_FCT(check_activity_resumed);
 
 	lua_pushboolean(L, g_first_run);

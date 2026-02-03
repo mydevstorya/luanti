@@ -583,8 +583,8 @@ bool tryShowInterstitial()
 	return result;
 }
 
-// ==================== RuStore Pay SDK ====================
-
+// ==================== RuStore Pay SDK (commented out - replaced by YooKassa) ====================
+/*
 static jclass getRuStorePayClass()
 {
 	static jclass cls = nullptr;
@@ -597,7 +597,450 @@ static jclass getRuStorePayClass()
 	}
 	return cls;
 }
+*/
 
+// ==================== YooKassa Pay SDK ====================
+
+static jclass getYooKassaPayClass()
+{
+	static jclass cls = nullptr;
+	if (cls == nullptr) {
+		jclass localCls = jnienv->FindClass("com/VocoCraft/VocoCraft/YooKassaPay");
+		if (localCls != nullptr) {
+			cls = (jclass)jnienv->NewGlobalRef(localCls);
+			jnienv->DeleteLocalRef(localCls);
+		}
+	}
+	return cls;
+}
+
+bool yookassaHasPurchase()
+{
+	if (jnienv == nullptr) return false;
+	
+	jclass cls = getYooKassaPayClass();
+	if (cls == nullptr) {
+		errorstream << "[YooKassaPay JNI] YooKassaPay class not found" << std::endl;
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return false;
+	}
+	
+	jmethodID method = jnienv->GetStaticMethodID(cls, "hasPurchase", "()Z");
+	if (method == nullptr) {
+		errorstream << "[YooKassaPay JNI] hasPurchase method not found" << std::endl;
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return false;
+	}
+	
+	bool result = jnienv->CallStaticBooleanMethod(cls, method);
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		return false;
+	}
+	
+	return result;
+}
+
+void yookassaStartPurchase(const std::string &amount, const std::string &currency,
+                           const std::string &title, const std::string &description)
+{
+	if (jnienv == nullptr) return;
+	
+	infostream << "[YooKassaPay JNI] yookassaStartPurchase()" << std::endl;
+	
+	jclass cls = getYooKassaPayClass();
+	if (cls == nullptr) {
+		errorstream << "[YooKassaPay JNI] YooKassaPay class not found" << std::endl;
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return;
+	}
+	
+	jmethodID method = jnienv->GetStaticMethodID(cls, "startPurchase", 
+		"(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V");
+	if (method == nullptr) {
+		errorstream << "[YooKassaPay JNI] startPurchase method not found" << std::endl;
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return;
+	}
+	
+	jstring jAmount = jnienv->NewStringUTF(amount.c_str());
+	jstring jCurrency = jnienv->NewStringUTF(currency.c_str());
+	jstring jTitle = jnienv->NewStringUTF(title.c_str());
+	jstring jDescription = jnienv->NewStringUTF(description.c_str());
+	
+	jnienv->CallStaticVoidMethod(cls, method, jAmount, jCurrency, jTitle, jDescription);
+	
+	jnienv->DeleteLocalRef(jAmount);
+	jnienv->DeleteLocalRef(jCurrency);
+	jnienv->DeleteLocalRef(jTitle);
+	jnienv->DeleteLocalRef(jDescription);
+	
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		errorstream << "[YooKassaPay JNI] Exception in startPurchase" << std::endl;
+	}
+	
+	infostream << "[YooKassaPay JNI] startPurchase called" << std::endl;
+}
+
+std::string yookassaGetDeviceUuid()
+{
+	if (jnienv == nullptr) return "";
+	
+	jclass cls = getYooKassaPayClass();
+	if (cls == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return "";
+	}
+	
+	jmethodID method = jnienv->GetStaticMethodID(cls, "getDeviceUuid", "()Ljava/lang/String;");
+	if (method == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return "";
+	}
+	
+	jstring jstr = (jstring)jnienv->CallStaticObjectMethod(cls, method);
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		return "";
+	}
+	
+	if (jstr == nullptr) return "";
+	
+	const char *cstr = jnienv->GetStringUTFChars(jstr, nullptr);
+	std::string result(cstr);
+	jnienv->ReleaseStringUTFChars(jstr, cstr);
+	jnienv->DeleteLocalRef(jstr);
+	
+	return result;
+}
+
+std::string yookassaGetProductPrice()
+{
+	if (jnienv == nullptr) return "249 ₽";
+	
+	jclass cls = getYooKassaPayClass();
+	if (cls == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return "249 ₽";
+	}
+	
+	jmethodID method = jnienv->GetStaticMethodID(cls, "getProductPrice", "()Ljava/lang/String;");
+	if (method == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return "249 ₽";
+	}
+	
+	jstring jstr = (jstring)jnienv->CallStaticObjectMethod(cls, method);
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		return "249 ₽";
+	}
+	
+	if (jstr == nullptr) return "249 ₽";
+	
+	const char *cstr = jnienv->GetStringUTFChars(jstr, nullptr);
+	std::string result(cstr);
+	jnienv->ReleaseStringUTFChars(jstr, cstr);
+	jnienv->DeleteLocalRef(jstr);
+	
+	return result.empty() ? "249 ₽" : result;
+}
+
+bool yookassaIsProductInfoFetched()
+{
+	if (jnienv == nullptr) return false;
+	
+	jclass cls = getYooKassaPayClass();
+	if (cls == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return false;
+	}
+	
+	jmethodID method = jnienv->GetStaticMethodID(cls, "isProductInfoFetched", "()Z");
+	if (method == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return false;
+	}
+	
+	bool result = jnienv->CallStaticBooleanMethod(cls, method);
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		return false;
+	}
+	
+	return result;
+}
+
+bool yookassaIsOperationInProgress()
+{
+	if (jnienv == nullptr) return false;
+	
+	jclass cls = getYooKassaPayClass();
+	if (cls == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return false;
+	}
+	
+	jmethodID method = jnienv->GetStaticMethodID(cls, "isOperationInProgress", "()Z");
+	if (method == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return false;
+	}
+	
+	bool result = jnienv->CallStaticBooleanMethod(cls, method);
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		return false;
+	}
+	
+	return result;
+}
+
+int yookassaGetLastOperationResult()
+{
+	if (jnienv == nullptr) return 0;
+	
+	jclass cls = getYooKassaPayClass();
+	if (cls == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return 0;
+	}
+	
+	jmethodID method = jnienv->GetStaticMethodID(cls, "getLastOperationResult", "()I");
+	if (method == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return 0;
+	}
+	
+	int result = jnienv->CallStaticIntMethod(cls, method);
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		return 0;
+	}
+	
+	return result;
+}
+
+std::string yookassaGetLastError()
+{
+	if (jnienv == nullptr) return "";
+	
+	jclass cls = getYooKassaPayClass();
+	if (cls == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return "";
+	}
+	
+	jmethodID method = jnienv->GetStaticMethodID(cls, "getLastError", "()Ljava/lang/String;");
+	if (method == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return "";
+	}
+	
+	jstring jstr = (jstring)jnienv->CallStaticObjectMethod(cls, method);
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		return "";
+	}
+	
+	if (jstr == nullptr) return "";
+	
+	const char *cstr = jnienv->GetStringUTFChars(jstr, nullptr);
+	std::string result(cstr);
+	jnienv->ReleaseStringUTFChars(jstr, cstr);
+	jnienv->DeleteLocalRef(jstr);
+	
+	return result;
+}
+
+void yookassaClearOperationResult()
+{
+	if (jnienv == nullptr) return;
+	
+	jclass cls = getYooKassaPayClass();
+	if (cls == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return;
+	}
+	
+	jmethodID method = jnienv->GetStaticMethodID(cls, "clearOperationResult", "()V");
+	if (method == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return;
+	}
+	
+	jnienv->CallStaticVoidMethod(cls, method);
+	if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+}
+
+void yookassaRestorePurchases()
+{
+	if (jnienv == nullptr) return;
+	
+	infostream << "[YooKassaPay JNI] yookassaRestorePurchases()" << std::endl;
+	
+	jclass cls = getYooKassaPayClass();
+	if (cls == nullptr) {
+		errorstream << "[YooKassaPay JNI] YooKassaPay class not found" << std::endl;
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return;
+	}
+	
+	jmethodID method = jnienv->GetStaticMethodID(cls, "restorePurchases", "()V");
+	if (method == nullptr) {
+		errorstream << "[YooKassaPay JNI] restorePurchases method not found" << std::endl;
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return;
+	}
+	
+	jnienv->CallStaticVoidMethod(cls, method);
+	if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+	
+	infostream << "[YooKassaPay JNI] restorePurchases called" << std::endl;
+}
+
+void yookassaFetchProductInfo()
+{
+	if (jnienv == nullptr) return;
+	
+	jclass cls = getYooKassaPayClass();
+	if (cls == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return;
+	}
+	
+	jmethodID method = jnienv->GetStaticMethodID(cls, "fetchProductInfo", "()V");
+	if (method == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return;
+	}
+	
+	jnienv->CallStaticVoidMethod(cls, method);
+	if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+}
+
+void yookassaClearCache()
+{
+	if (jnienv == nullptr) return;
+	
+	jclass cls = getYooKassaPayClass();
+	if (cls == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return;
+	}
+	
+	jmethodID method = jnienv->GetStaticMethodID(cls, "clearCache", "()V");
+	if (method == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return;
+	}
+	
+	jnienv->CallStaticVoidMethod(cls, method);
+	if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+}
+
+std::string yookassaGetPendingConfirmationUrl()
+{
+	if (jnienv == nullptr) return "";
+	
+	jclass cls = getYooKassaPayClass();
+	if (cls == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return "";
+	}
+	
+	jmethodID method = jnienv->GetStaticMethodID(cls, "getPendingConfirmationUrl", "()Ljava/lang/String;");
+	if (method == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return "";
+	}
+	
+	jstring jstr = (jstring)jnienv->CallStaticObjectMethod(cls, method);
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		return "";
+	}
+	
+	if (jstr == nullptr) return "";
+	
+	const char *cstr = jnienv->GetStringUTFChars(jstr, nullptr);
+	std::string result(cstr);
+	jnienv->ReleaseStringUTFChars(jstr, cstr);
+	jnienv->DeleteLocalRef(jstr);
+	
+	return result;
+}
+
+std::string yookassaGetPendingPaymentMethodType()
+{
+	if (jnienv == nullptr) return "";
+	
+	jclass cls = getYooKassaPayClass();
+	if (cls == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return "";
+	}
+	
+	jmethodID method = jnienv->GetStaticMethodID(cls, "getPendingPaymentMethodType", "()Ljava/lang/String;");
+	if (method == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return "";
+	}
+	
+	jstring jstr = (jstring)jnienv->CallStaticObjectMethod(cls, method);
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		return "";
+	}
+	
+	if (jstr == nullptr) return "";
+	
+	const char *cstr = jnienv->GetStringUTFChars(jstr, nullptr);
+	std::string result(cstr);
+	jnienv->ReleaseStringUTFChars(jstr, cstr);
+	jnienv->DeleteLocalRef(jstr);
+	
+	return result;
+}
+
+void yookassaStartConfirmation(const std::string &confirmationUrl, const std::string &paymentMethodType)
+{
+	if (jnienv == nullptr) return;
+	
+	infostream << "[YooKassaPay JNI] yookassaStartConfirmation()" << std::endl;
+	
+	jclass cls = getYooKassaPayClass();
+	if (cls == nullptr) {
+		errorstream << "[YooKassaPay JNI] YooKassaPay class not found" << std::endl;
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return;
+	}
+	
+	jmethodID method = jnienv->GetStaticMethodID(cls, "startConfirmation", 
+		"(Ljava/lang/String;Ljava/lang/String;)V");
+	if (method == nullptr) {
+		errorstream << "[YooKassaPay JNI] startConfirmation method not found" << std::endl;
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return;
+	}
+	
+	jstring jUrl = jnienv->NewStringUTF(confirmationUrl.c_str());
+	jstring jType = jnienv->NewStringUTF(paymentMethodType.c_str());
+	
+	jnienv->CallStaticVoidMethod(cls, method, jUrl, jType);
+	
+	jnienv->DeleteLocalRef(jUrl);
+	jnienv->DeleteLocalRef(jType);
+	
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		errorstream << "[YooKassaPay JNI] Exception in startConfirmation" << std::endl;
+	}
+}
+
+// RuStore Pay SDK functions (commented out - replaced by YooKassa)
+/*
 bool rustoreHasSubscription()
 {
 	if (jnienv == nullptr) return false;
@@ -1037,6 +1480,8 @@ void rustoreClearCache()
 	jnienv->CallStaticVoidMethod(cls, method);
 	if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
 }
+*/
+// End of RuStore Pay SDK functions (commented out)
 
 bool checkAndClearActivityResumedFlag()
 {

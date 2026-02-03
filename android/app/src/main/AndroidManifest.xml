@@ -13,6 +13,7 @@
 		android:icon="@mipmap/ic_launcher"
 		android:label="@string/label"
 		android:resizeableActivity="false"
+		android:networkSecurityConfig="@xml/ym_network_security_config"
 		tools:replace="android:allowBackup,android:label"
 		tools:ignore="UnusedAttribute">
 
@@ -20,15 +21,15 @@
 			android:name="android.max_aspect"
 			android:value="3.0" />
 		
-		<!-- RuStore Pay SDK: Console Application ID -->
-		<meta-data
+		<!-- RuStore Pay SDK: Console Application ID (commented out, replaced by YooKassa) -->
+		<!-- <meta-data
 			android:name="console_app_id_value"
-			android:value="@string/rustore_console_app_id" />
+			android:value="@string/rustore_console_app_id" /> -->
 		
-		<!-- RuStore Pay SDK: Deeplink scheme for payment return -->
-		<meta-data
+		<!-- RuStore Pay SDK: Deeplink scheme for payment return (commented out) -->
+		<!-- <meta-data
 			android:name="sdk_pay_scheme_value"
-			android:value="com.VocoCraft.VocoCraft" />
+			android:value="com.VocoCraft.VocoCraft" /> -->
 
 		<activity
 			android:name=".MainActivity"
@@ -55,7 +56,7 @@
 			<intent-filter>
 				<action android:name="android.intent.action.MAIN" />
 			</intent-filter>
-			<!-- RuStore Pay SDK: Deeplink intent filter -->
+			<!-- YooKassa SDK: Deeplink intent filter for SBP/SberPay return -->
 			<intent-filter>
 				<action android:name="android.intent.action.VIEW" />
 				<category android:name="android.intent.category.DEFAULT" />

@@ -149,7 +149,8 @@ private:
 	static int l_get_lan_servers(lua_State *L);
 	static int l_clear_lan_servers(lua_State *L);
 
-	// RuStore Pay SDK
+	// RuStore Pay SDK (commented out - replaced by YooKassa)
+	/*
 	static int l_rustore_has_subscription(lua_State *L);
 	static int l_rustore_check_subscription_async(lua_State *L);
 	static int l_rustore_purchase_subscription(lua_State *L);
@@ -164,10 +165,28 @@ private:
 	static int l_rustore_get_last_operation_result(lua_State *L);
 	static int l_rustore_get_last_error(lua_State *L);
 	static int l_rustore_clear_operation_result(lua_State *L);
-	static int l_check_activity_resumed(lua_State *L);
 	static int l_rustore_restore_purchases(lua_State *L);
 	static int l_rustore_fetch_product_info(lua_State *L);
 	static int l_rustore_clear_cache(lua_State *L);
+	*/
+
+	// YooKassa Pay SDK
+	static int l_yookassa_has_purchase(lua_State *L);
+	static int l_yookassa_start_purchase(lua_State *L);
+	static int l_yookassa_get_device_uuid(lua_State *L);
+	static int l_yookassa_get_product_price(lua_State *L);
+	static int l_yookassa_is_product_info_fetched(lua_State *L);
+	static int l_yookassa_is_operation_in_progress(lua_State *L);
+	static int l_yookassa_get_last_operation_result(lua_State *L);
+	static int l_yookassa_get_last_error(lua_State *L);
+	static int l_yookassa_clear_operation_result(lua_State *L);
+	static int l_yookassa_restore_purchases(lua_State *L);
+	static int l_yookassa_fetch_product_info(lua_State *L);
+	static int l_yookassa_clear_cache(lua_State *L);
+	static int l_yookassa_get_pending_confirmation_url(lua_State *L);
+	static int l_yookassa_get_pending_payment_method_type(lua_State *L);
+	static int l_yookassa_start_confirmation(lua_State *L);
+	static int l_check_activity_resumed(lua_State *L);
 
 	// async
 	static int l_do_async_callback(lua_State *L);

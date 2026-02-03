@@ -43,7 +43,7 @@ dofile(menupath .. DIR_DELIM .. "game_theme.lua")
 
 -- === VOCOCRAFT: Load subscription module BEFORE content (needed for mod install check) ===
 dofile(menupath .. DIR_DELIM .. "vococraft" .. DIR_DELIM .. "subscription.lua")
-dofile(menupath .. DIR_DELIM .. "vococraft" .. DIR_DELIM .. "dlg_subscription.lua")
+dofile(menupath .. DIR_DELIM .. "vococraft" .. DIR_DELIM .. "dlg_fullversion.lua")
 dofile(menupath .. DIR_DELIM .. "vococraft" .. DIR_DELIM .. "content_filter.lua")
 -- === END VOCOCRAFT ===
 
@@ -99,7 +99,8 @@ local function init_globals()
 	end
 	-- === END VOCOCRAFT ===
 	
-	-- === VOCOCRAFT: Initialize subscription system (RuStore Pay) ===
+	-- === VOCOCRAFT: Initialize purchase system (YooKassa) ===
+	-- Restores purchases from backend on app start
 	if vococraft_subscription and vococraft_subscription.init then
 		vococraft_subscription.init()
 	end

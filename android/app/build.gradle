@@ -1,26 +1,41 @@
 apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
 
+// Load properties at top level so they're accessible everywhere
+Properties props = new Properties()
+def propfile = file('../local.properties')
+if (propfile.exists())
+	props.load(new FileInputStream(propfile))
+
 android {
 	ndkVersion "$ndk_version"
 	defaultConfig {
 		applicationId 'com.VocoCraft.VocoCraft'
-		minSdkVersion 23
-		compileSdk 34
+		minSdkVersion 24
+		compileSdk 35
 		targetSdkVersion 35
 		versionName "${versionMajor}.${versionMinor}.${versionPatch}"
 		versionCode versionMajor * 1000000 + versionMinor * 10000 + versionPatch * 100 + versionBuild
+		
+		// YooKassa SDK: Deeplink scheme for payment return (SBP, SberPay)
+		resValue "string", "ym_app_scheme", "com.vococraft.vococraft"
+		
+		// YooKassa secrets from local.properties (not committed to git)
+		buildConfigField "String", "YOOKASSA_BACKEND_URL", 
+			"\"${props.getProperty('yookassa.backend_url', 'https://payments.moodray.ru')}\""
+		buildConfigField "String", "YOOKASSA_SHOP_ID_DEBUG",
+			"\"${props.getProperty('yookassa.shop_id_debug', '')}\""
+		buildConfigField "String", "YOOKASSA_SHOP_ID_PROD",
+			"\"${props.getProperty('yookassa.shop_id_prod', '')}\""
+		buildConfigField "String", "YOOKASSA_CLIENT_KEY_DEBUG",
+			"\"${props.getProperty('yookassa.client_key_debug', '')}\""
+		buildConfigField "String", "YOOKASSA_CLIENT_KEY_PROD",
+			"\"${props.getProperty('yookassa.client_key_prod', '')}\""
 	}
 
 	buildFeatures {
 		buildConfig true
 	}
-
-	// load properties
-	Properties props = new Properties()
-	def propfile = file('../local.properties')
-	if (propfile.exists())
-		props.load(new FileInputStream(propfile))
 
 	if (props.getProperty('keystore') != null) {
 		signingConfigs {
@@ -146,8 +161,14 @@ dependencies {
 	implementation 'io.appmetrica.analytics:analytics:7.14.0'
 	// Yandex Mobile Ads SDK
 	implementation 'com.yandex.android:mobileads:7.18.1'
-	// RuStore SDKs - BOM версия
-	implementation(platform("ru.rustore.sdk:bom:2025.11.01"))
-	implementation("ru.rustore.sdk:pay")
-	implementation("ru.rustore.sdk:review")
+	// RuStore SDKs - BOM версия (commented out, replaced by YooKassa)
+	// implementation(platform("ru.rustore.sdk:bom:2025.11.01"))
+	// implementation("ru.rustore.sdk:pay")
+	// implementation("ru.rustore.sdk:review")
+	
+	// YooKassa SDK for payments
+	implementation 'ru.yoomoney.sdk.kassa.payments:yookassa-android-sdk:8.3.0'
+	
+	// OkHttp for backend API calls
+	implementation 'com.squareup.okhttp3:okhttp:4.12.0'
 }
