@@ -191,6 +191,16 @@ std::string yookassaGetDeviceUuid();
 std::string yookassaGetProductPrice();
 
 /**
+ * Get raw product amount (e.g. "249")
+ */
+std::string yookassaGetProductAmount();
+
+/**
+ * Get product currency (e.g. "RUB")
+ */
+std::string yookassaGetProductCurrency();
+
+/**
  * Check if product info has been successfully fetched from backend
  */
 bool yookassaIsProductInfoFetched();

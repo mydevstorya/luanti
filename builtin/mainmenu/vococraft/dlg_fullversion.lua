@@ -4,8 +4,8 @@
 
 -- Beautiful mobile-first one-time purchase offer dialog
 
--- Product ID constant
-local PRODUCT_ID = "vococraft_full_version"
+-- Product ID constant (must match backend apps_config.json, lowercase)
+local PRODUCT_ID = "com.vococraft.vococraft.fullversion"
 
 -- Helper function to send full-version-window analytics (dialog open event)
 local function send_window_analytics(event_name, source)
@@ -16,7 +16,7 @@ local function send_window_analytics(event_name, source)
 	local json_params = core.write_json(params)
 	core.log("action", "[Vococraft Analytics] Sending full-version-window/" .. event_name .. ": " .. json_params)
 	if core.send_analytics_event then
-		local res = core.send_analytics_event("full-version-window", json_params)
+		local res = core.send_analytics_event("full_version_window", json_params)
 		core.log("action", "[Vococraft Analytics] Result: " .. tostring(res))
 	else
 		core.log("warning", "[Vococraft Analytics] core.send_analytics_event is nil!")
@@ -141,8 +141,8 @@ local function get_fullversion_formspec(data)
 		-- Product info still loading
 		offer_price = "Загрузка..."
 	else
-		-- One-time purchase price
-		offer_price = info.price_formatted ~= "" and info.price_formatted or "249 ₽"
+		-- One-time purchase price (price should come from backend with word "рублей")
+		offer_price = info.price_formatted ~= "" and info.price_formatted or "Загрузка..."
 	end
 	
 	table.insert(formspec, table.concat({

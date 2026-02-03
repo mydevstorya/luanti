@@ -62,10 +62,10 @@ Java_com_VocoCraft_VocoCraft_GameActivity_nativeOnActivityResumed(JNIEnv* env, j
 	g_activity_resumed_flag.store(true);
 }
 
-// Called from GameActivity (via RuStorePay.kt) when purchase completes
+// Called from GameActivity (via YooKassaPay.kt) when purchase completes
 extern "C" JNIEXPORT void JNICALL
 Java_com_VocoCraft_VocoCraft_GameActivity_nativeOnPurchaseComplete(JNIEnv* env, jobject /* this */) {
-	infostream << "[RuStorePay] Purchase complete (native callback) - triggering UI refresh" << std::endl;
+	infostream << "[YooKassa] Purchase complete (native callback) - triggering UI refresh" << std::endl;
 	g_purchase_complete_flag.store(true);
 	
 	// Push a dummy SDL event to wake up the main loop immediately
@@ -76,7 +76,7 @@ Java_com_VocoCraft_VocoCraft_GameActivity_nativeOnPurchaseComplete(JNIEnv* env, 
 	event.user.data1 = nullptr;
 	event.user.data2 = nullptr;
 	SDL_PushEvent(&event);
-	infostream << "[RuStorePay] SDL event pushed to wake main loop" << std::endl;
+	infostream << "[YooKassa] SDL event pushed to wake main loop" << std::endl;
 }
 
 namespace porting {
@@ -744,7 +744,71 @@ std::string yookassaGetProductPrice()
 	jnienv->ReleaseStringUTFChars(jstr, cstr);
 	jnienv->DeleteLocalRef(jstr);
 	
-	return result.empty() ? "249 ₽" : result;
+	return result.empty() ? "" : result;  // Return empty if not loaded yet
+}
+
+std::string yookassaGetProductAmount()
+{
+	if (jnienv == nullptr) return "249";
+	
+	jclass cls = getYooKassaPayClass();
+	if (cls == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return "249";
+	}
+	
+	jmethodID method = jnienv->GetStaticMethodID(cls, "getProductAmount", "()Ljava/lang/String;");
+	if (method == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return "249";
+	}
+	
+	jstring jstr = (jstring)jnienv->CallStaticObjectMethod(cls, method);
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		return "249";
+	}
+	
+	if (jstr == nullptr) return "249";
+	
+	const char *cstr = jnienv->GetStringUTFChars(jstr, nullptr);
+	std::string result(cstr);
+	jnienv->ReleaseStringUTFChars(jstr, cstr);
+	jnienv->DeleteLocalRef(jstr);
+	
+	return result.empty() ? "249" : result;
+}
+
+std::string yookassaGetProductCurrency()
+{
+	if (jnienv == nullptr) return "RUB";
+	
+	jclass cls = getYooKassaPayClass();
+	if (cls == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return "RUB";
+	}
+	
+	jmethodID method = jnienv->GetStaticMethodID(cls, "getProductCurrency", "()Ljava/lang/String;");
+	if (method == nullptr) {
+		if (jnienv->ExceptionCheck()) jnienv->ExceptionClear();
+		return "RUB";
+	}
+	
+	jstring jstr = (jstring)jnienv->CallStaticObjectMethod(cls, method);
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		return "RUB";
+	}
+	
+	if (jstr == nullptr) return "RUB";
+	
+	const char *cstr = jnienv->GetStringUTFChars(jstr, nullptr);
+	std::string result(cstr);
+	jnienv->ReleaseStringUTFChars(jstr, cstr);
+	jnienv->DeleteLocalRef(jstr);
+	
+	return result.empty() ? "RUB" : result;
 }
 
 bool yookassaIsProductInfoFetched()

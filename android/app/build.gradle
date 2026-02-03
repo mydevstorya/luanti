@@ -21,8 +21,10 @@ android {
 		resValue "string", "ym_app_scheme", "com.vococraft.vococraft"
 		
 		// YooKassa secrets from local.properties (not committed to git)
-		buildConfigField "String", "YOOKASSA_BACKEND_URL", 
-			"\"${props.getProperty('yookassa.backend_url', 'https://payments.moodray.ru')}\""
+		buildConfigField "String", "YOOKASSA_BACKEND_URL_DEBUG", 
+			"\"${props.getProperty('yookassa.backend_url_debug', 'https://payments-debug.moodray.ru')}\""
+		buildConfigField "String", "YOOKASSA_BACKEND_URL_PROD",
+			"\"${props.getProperty('yookassa.backend_url_prod', 'https://payments.moodray.ru')}\""
 		buildConfigField "String", "YOOKASSA_SHOP_ID_DEBUG",
 			"\"${props.getProperty('yookassa.shop_id_debug', '')}\""
 		buildConfigField "String", "YOOKASSA_SHOP_ID_PROD",
@@ -155,6 +157,8 @@ clean {
 dependencies {
 	implementation project(':native')
 	implementation 'androidx.appcompat:appcompat:1.6.1'
+	// Material Components (required by YooKassa SDK 8.x)
+	implementation 'com.google.android.material:material:1.11.0'
 	// Kotlin stdlib
 	implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
 	// AppMetrica SDK

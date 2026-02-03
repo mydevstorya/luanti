@@ -1207,7 +1207,29 @@ int ModApiMainMenu::l_yookassa_get_product_price(lua_State *L)
 	std::string price = porting::yookassaGetProductPrice();
 	lua_pushstring(L, price.c_str());
 #else
-	lua_pushstring(L, "249 ₽");
+	lua_pushstring(L, "249 рублей");
+#endif
+	return 1;
+}
+
+int ModApiMainMenu::l_yookassa_get_product_amount(lua_State *L)
+{
+#ifdef __ANDROID__
+	std::string amount = porting::yookassaGetProductAmount();
+	lua_pushstring(L, amount.c_str());
+#else
+	lua_pushstring(L, "249");
+#endif
+	return 1;
+}
+
+int ModApiMainMenu::l_yookassa_get_product_currency(lua_State *L)
+{
+#ifdef __ANDROID__
+	std::string currency = porting::yookassaGetProductCurrency();
+	lua_pushstring(L, currency.c_str());
+#else
+	lua_pushstring(L, "RUB");
 #endif
 	return 1;
 }
@@ -1621,6 +1643,8 @@ void ModApiMainMenu::Initialize(lua_State *L, int top)
 	API_FCT(yookassa_start_purchase);
 	API_FCT(yookassa_get_device_uuid);
 	API_FCT(yookassa_get_product_price);
+	API_FCT(yookassa_get_product_amount);
+	API_FCT(yookassa_get_product_currency);
 	API_FCT(yookassa_is_product_info_fetched);
 	API_FCT(yookassa_is_operation_in_progress);
 	API_FCT(yookassa_get_last_operation_result);

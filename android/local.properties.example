@@ -10,8 +10,9 @@ sdk.dir=C:\\path\\to\\Android\\Sdk
 # === YooKassa Payment Configuration ===
 # Get these values from YooKassa dashboard: https://yookassa.ru/my/shop-settings
 
-# Backend API URL for payment processing
-yookassa.backend_url=https://payments.moodray.ru
+# Backend API URLs for payment processing
+yookassa.backend_url_debug=https://payments-debug.moodray.ru
+yookassa.backend_url_prod=https://payments.moodray.ru
 
 # Shop IDs (from YooKassa dashboard)
 yookassa.shop_id_debug=your_debug_shop_id

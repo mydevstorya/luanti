@@ -175,6 +175,8 @@ private:
 	static int l_yookassa_start_purchase(lua_State *L);
 	static int l_yookassa_get_device_uuid(lua_State *L);
 	static int l_yookassa_get_product_price(lua_State *L);
+	static int l_yookassa_get_product_amount(lua_State *L);
+	static int l_yookassa_get_product_currency(lua_State *L);
 	static int l_yookassa_is_product_info_fetched(lua_State *L);
 	static int l_yookassa_is_operation_in_progress(lua_State *L);
 	static int l_yookassa_get_last_operation_result(lua_State *L);

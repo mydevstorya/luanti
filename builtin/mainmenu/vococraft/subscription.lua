@@ -1,10 +1,15 @@
 -- Vococraft
 -- Purchase management module with YooKassa SDK integration
 -- SPDX-License-Identifier: LGPL-2.1-or-later
-
+--
+-- NOTE: This file is named subscription.lua for backwards compatibility
+-- but manages ONE-TIME PURCHASE (not subscription) for full version access.
+-- The global is vococraft_subscription for backwards compat, but also
+-- aliased as vococraft_purchase.
+--
 -- === PURCHASE STATE ===
 -- This module manages one-time purchase state for full version access
--- On Android: Integrates with YooKassa SDK for real payments
+-- On Android: Integrates with YooKassa SDK for real payments  
 -- On PC: Emulation mode - resets to false on restart
 
 vococraft_subscription = {
@@ -14,8 +19,10 @@ vococraft_subscription = {
 	-- Purchase date (Unix timestamp, 0 if not purchased)
 	purchase_date = 0,
 	
-	-- Product price (fetched from backend on Android, fallback on PC)
-	product_price_formatted = "249 ₽",
+	-- Product info (fetched from backend on Android)
+	product_price_formatted = "Загрузка...",
+	product_amount = "249",      -- Raw amount for purchase (e.g. "249")
+	product_currency = "RUB",    -- Currency for purchase (e.g. "RUB")
 	
 	-- Device UUID for backend API
 	device_uuid = "",
@@ -143,10 +150,13 @@ function vococraft_subscription.init()
 		-- Start async polling for results
 		vococraft_subscription.start_async_polling()
 	else
-		-- PC mode - no real prices available
+		-- PC mode - use test price with word
+		vococraft_subscription.product_price_formatted = "249 рублей"
+		vococraft_subscription.product_amount = "249"
+		vococraft_subscription.product_currency = "RUB"
 		vococraft_subscription.prices_loaded = true
 		vococraft_subscription.product_info_fetched = true
-		core.log("action", "[Vococraft Purchase] PC mode, using default price")
+		core.log("action", "[Vococraft Purchase] PC mode, using test price")
 	end
 end
 
@@ -212,15 +222,31 @@ function vococraft_subscription.update_product_info()
 		if price ~= "" then
 			vococraft_subscription.product_price_formatted = price
 		end
+		
+		-- Load amount and currency for purchase
+		local amount = core.yookassa_get_product_amount()
+		if amount ~= "" then
+			vococraft_subscription.product_amount = amount
+		end
+		
+		local currency = core.yookassa_get_product_currency()
+		if currency ~= "" then
+			vococraft_subscription.product_currency = currency
+		end
+		
 		vococraft_subscription.product_info_fetched = true
 		vococraft_subscription.prices_loaded = true
 		
 		core.log("action", "[Vococraft Purchase] Product info loaded: " .. 
-			vococraft_subscription.product_price_formatted)
+			vococraft_subscription.product_price_formatted .. " (" ..
+			vococraft_subscription.product_amount .. " " ..
+			vococraft_subscription.product_currency .. ")")
 		
 		-- Notify listeners that product info is now available
 		notify_listeners("product_info_loaded", {
 			price = vococraft_subscription.product_price_formatted,
+			amount = vococraft_subscription.product_amount,
+			currency = vococraft_subscription.product_currency,
 		})
 		
 		return true
@@ -313,17 +339,28 @@ function vococraft_subscription.purchase(callback)
 	end
 	
 	if vococraft_subscription.is_android() then
+		-- Check if product info is loaded
+		if not vococraft_subscription.product_info_fetched then
+			core.log("warning", "[Vococraft Purchase] Product info not loaded yet")
+			if callback then
+				callback(false, "Информация о продукте ещё загружается")
+			end
+			return
+		end
+		
 		-- Start YooKassa purchase flow
-		core.log("action", "[Vococraft Purchase] Starting purchase flow...")
+		core.log("action", "[Vococraft Purchase] Starting purchase flow with amount: " ..
+			vococraft_subscription.product_amount .. " " .. vococraft_subscription.product_currency)
 		vococraft_subscription.purchase_in_progress = true
 		vococraft_subscription.purchase_callback = callback
 		core.yookassa_clear_operation_result()
 		
 		-- Start tokenization with YooKassa SDK
 		-- Parameters: amount, currency, title, description
+		-- Use loaded product amount and currency from backend
 		core.yookassa_start_purchase(
-			"249.00",
-			"RUB",
+			vococraft_subscription.product_amount,
+			vococraft_subscription.product_currency,
 			"VocoCraft Полная версия",
 			"Разблокировка всех функций без рекламы"
 		)
@@ -569,6 +606,9 @@ function vococraft_subscription.poll_async_results()
 	
 	return any_completed
 end
+
+-- Alias for semantic correctness (this is a purchase, not subscription)
+vococraft_purchase = vococraft_subscription
 
 -- Initialize on load
 core.log("action", "[Vococraft] Purchase module loaded (YooKassa)")

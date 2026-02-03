@@ -61,7 +61,7 @@
 				<action android:name="android.intent.action.VIEW" />
 				<category android:name="android.intent.category.DEFAULT" />
 				<category android:name="android.intent.category.BROWSABLE" />
-				<data android:scheme="com.VocoCraft.VocoCraft" />
+				<data android:scheme="com.vococraft.vococraft" />
 			</intent-filter>
 		</activity>
 
@@ -69,6 +69,31 @@
 			android:name=".UnzipService"
 			android:enabled="true"
 			android:exported="false" />
+
+		<!-- YooKassa SDK Activity overrides for landscape orientation -->
+		<activity
+			android:name="ru.yoomoney.sdk.kassa.payments.ui.CheckoutActivity"
+			android:screenOrientation="sensorLandscape"
+			android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+			tools:replace="android:screenOrientation,android:configChanges" />
+
+		<activity
+			android:name="ru.yoomoney.sdk.kassa.payments.ui.ConfirmationActivity"
+			android:screenOrientation="sensorLandscape"
+			android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+			tools:replace="android:screenOrientation,android:configChanges" />
+
+		<activity
+			android:name="ru.yoomoney.sdk.kassa.payments.threeDS.WebViewActivity"
+			android:screenOrientation="sensorLandscape"
+			android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+			tools:replace="android:screenOrientation,android:configChanges" />
+
+		<activity
+			android:name="ru.yoomoney.sdk.kassa.payments.ui.PendingIntentActivity"
+			android:screenOrientation="sensorLandscape"
+			android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+			tools:replace="android:screenOrientation,android:configChanges" />
 
 		<provider
 			android:name="androidx.core.content.FileProvider"

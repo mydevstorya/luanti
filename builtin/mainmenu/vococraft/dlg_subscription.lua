@@ -4,8 +4,8 @@
 
 -- Beautiful mobile-first one-time purchase offer dialog
 
--- Product ID constant
-local PRODUCT_ID = "vococraft_full_version"
+-- Product ID constant (must match backend apps_config.json, lowercase)
+local PRODUCT_ID = "com.vococraft.vococraft.fullversion"
 
 -- Helper function to send full-version-window analytics (dialog open event)
 local function send_window_analytics(event_name, source)

@@ -54,12 +54,18 @@ class YooKassaPay private constructor(private val context: Context) {
     companion object {
         private const val TAG = "YooKassaPay"
 
-        // Product ID for full version purchase
-        const val FULL_VERSION_PRODUCT_ID = "com.VocoCraft.VocoCraft.full_version"
+        // Product ID for full version purchase (same ID used in backend apps_config.json)
+        // Must be lowercase to match server config
+        const val FULL_VERSION_PRODUCT_ID = "com.vococraft.vococraft.fullversion"
 
         // Backend API URL (from local.properties via BuildConfig)
+        // Uses debug URL for debug builds, prod URL for release builds
         private val BACKEND_URL: String
-            get() = BuildConfig.YOOKASSA_BACKEND_URL.ifEmpty { "https://payments.moodray.ru" }
+            get() = if (BuildConfig.DEBUG) {
+                BuildConfig.YOOKASSA_BACKEND_URL_DEBUG.ifEmpty { "https://payments-debug.moodray.ru" }
+            } else {
+                BuildConfig.YOOKASSA_BACKEND_URL_PROD.ifEmpty { "https://payments.moodray.ru" }
+            }
 
         // YooKassa credentials (from local.properties via BuildConfig)
         // Configure in android/local.properties (not committed to git)
@@ -160,6 +166,16 @@ class YooKassaPay private constructor(private val context: Context) {
         }
 
         @JvmStatic
+        fun getProductAmount(): String {
+            return instance?.productAmount ?: "249"
+        }
+
+        @JvmStatic
+        fun getProductCurrency(): String {
+            return instance?.productCurrency ?: "RUB"
+        }
+
+        @JvmStatic
         fun isProductInfoFetched(): Boolean {
             return instance?.productInfoFetched ?: false
         }
@@ -239,6 +255,8 @@ class YooKassaPay private constructor(private val context: Context) {
 
     // Product info from backend
     private var productPriceFormatted: String? = null
+    private var productAmount: String? = null      // Raw amount from backend (e.g. "249")
+    private var productCurrency: String? = null    // Currency from backend (e.g. "RUB")
     private var productInfoFetched = false
 
     // Current payment flow state
@@ -334,6 +352,9 @@ class YooKassaPay private constructor(private val context: Context) {
         val appId = context.packageName.lowercase()
         val url = "$BACKEND_URL/get-products?id=$appId"
         
+        Log.d(TAG, "Fetching products from: $url")
+        Log.d(TAG, "Looking for product ID: $FULL_VERSION_PRODUCT_ID")
+        
         val request = Request.Builder()
             .url(url)
             .addHeader("ngrok-skip-browser-warning", "true")
@@ -343,33 +364,75 @@ class YooKassaPay private constructor(private val context: Context) {
         httpClient.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
                 Log.e(TAG, "Failed to fetch products: ${e.message}")
+                // Don't set fallback - keep "Загрузка..." state
             }
 
             override fun onResponse(call: Call, response: Response) {
                 response.use { resp ->
                     if (!resp.isSuccessful) {
                         Log.e(TAG, "Products fetch failed: ${resp.code}")
+                        // Don't set fallback - keep "Загрузка..." state
                         return
                     }
 
                     try {
-                        val body = resp.body?.string() ?: return
+                        val body = resp.body?.string() ?: run {
+                            Log.e(TAG, "Empty response body")
+                            // Don't set fallback - keep "Загрузка..." state
+                            return
+                        }
+                        
+                        Log.d(TAG, "Products response: $body")
+                        
                         val json = JSONObject(body)
-                        val products = json.optJSONArray("products") ?: return
+                        val products = json.optJSONArray("products")
+                        
+                        if (products == null || products.length() == 0) {
+                            Log.w(TAG, "No products in response")
+                            // Don't set fallback - keep "Загрузка..." state
+                            return
+                        }
 
+                        var found = false
                         for (i in 0 until products.length()) {
                             val product = products.getJSONObject(i)
-                            if (product.getString("id") == FULL_VERSION_PRODUCT_ID) {
-                                val amount = product.getString("amount")
-                                val currency = product.getString("currency")
+                            val productId = product.optString("id", "")
+                            Log.d(TAG, "Product[$i]: id='$productId', full json=$product")
+                            
+                            // Match by exact id
+                            if (productId == FULL_VERSION_PRODUCT_ID) {
+                                // Get amount - handle both string and number types
+                                val amount = when {
+                                    product.has("amount") -> {
+                                        val amountVal = product.get("amount")
+                                        when (amountVal) {
+                                            is String -> amountVal
+                                            is Number -> amountVal.toString()
+                                            else -> "249"
+                                        }
+                                    }
+                                    else -> "249"
+                                }
+                                val currency = product.optString("currency", "RUB")
+                                
+                                productAmount = amount
+                                productCurrency = currency
                                 productPriceFormatted = formatPrice(amount, currency)
                                 productInfoFetched = true
-                                Log.i(TAG, "Product info fetched: $productPriceFormatted")
+                                found = true
+                                Log.i(TAG, "Product info fetched: amount=$amount, currency=$currency, formatted=$productPriceFormatted")
                                 break
                             }
                         }
+                        
+                        if (!found) {
+                            Log.w(TAG, "Product not found in response")
+                            // Don't set fallback - keep "Загрузка..." state
+                        }
                     } catch (e: Exception) {
                         Log.e(TAG, "Failed to parse products: ${e.message}")
+                        e.printStackTrace()
+                        // Don't set fallback - keep "Загрузка..." state
                     }
                 }
             }
@@ -377,11 +440,20 @@ class YooKassaPay private constructor(private val context: Context) {
     }
 
     private fun formatPrice(amount: String, currency: String): String {
+        // Remove trailing .00 for cleaner display (249.00 -> 249)
+        val cleanAmount = if (amount.endsWith(".00")) {
+            amount.dropLast(3)
+        } else if (amount.endsWith(".0")) {
+            amount.dropLast(2)
+        } else {
+            amount
+        }
+        
         return when (currency.uppercase()) {
-            "RUB" -> "$amount ₽"
-            "USD" -> "$$amount"
-            "EUR" -> "€$amount"
-            else -> "$amount $currency"
+            "RUB" -> "$cleanAmount рублей"
+            "USD" -> "$cleanAmount USD"
+            "EUR" -> "$cleanAmount EUR"
+            else -> "$cleanAmount $currency"
         }
     }
 
@@ -782,13 +854,14 @@ class YooKassaPay private constructor(private val context: Context) {
         operationInProgress.set(true)
 
         val uuid = getDeviceUuidInternal()
+        val appId = context.packageName.lowercase()
 
         val jsonBody = JSONObject().apply {
             put("uuid", uuid)
         }
 
         val request = Request.Builder()
-            .url("$BACKEND_URL/get-my-products")
+            .url("$BACKEND_URL/get-my-products?id=$appId")
             .addHeader("Content-Type", "application/json")
             .post(jsonBody.toString().toRequestBody("application/json".toMediaType()))
             .build()
@@ -822,7 +895,8 @@ class YooKassaPay private constructor(private val context: Context) {
                         var foundPurchase = false
                         for (i in 0 until products.length()) {
                             val product = products.getJSONObject(i)
-                            if (product.getString("product_id") == FULL_VERSION_PRODUCT_ID) {
+                            val productId = product.getString("product_id")
+                            if (productId == FULL_VERSION_PRODUCT_ID) {
                                 val isConsumed = product.optBoolean("is_consumed", false)
                                 if (!isConsumed) {
                                     foundPurchase = true
