@@ -25,13 +25,16 @@ end
 
 -- Helper function to send purchase analytics
 -- Event: "purchase" with child params:
---   success -> {id}
---   failed -> {id, reason}
---   canceled -> {id, reason (optional)}
+--   started -> {id} - user clicked buy button
+--   success -> {id} - purchase completed successfully
+--   failed -> {id, reason} - purchase failed with error
+--   canceled -> {id, reason (optional)} - user canceled purchase
 local function send_purchase_analytics(result_type, product_id, reason)
 	local params = {}
 	
-	if result_type == "success" then
+	if result_type == "started" then
+		params.started = { id = product_id }
+	elseif result_type == "success" then
 		params.success = { id = product_id }
 	elseif result_type == "failed" then
 		params.failed = { id = product_id, reason = reason or "unknown" }
@@ -113,7 +116,7 @@ local function get_fullversion_formspec(data)
 		
 		"label[", padding + 0.4, ",2.4;", 
 			core.colorize(accent_gold, "+ "),
-			core.colorize(text_light, "Игра без рекламы навсегда"), "]",
+			core.colorize(text_light, "Играй без рекламы"), "]",
 		
 		"label[", padding + 0.4, ",2.95;", 
 			core.colorize(accent_gold, "+ "),
@@ -121,7 +124,7 @@ local function get_fullversion_formspec(data)
 		
 		"label[", padding + 0.4, ",3.5;", 
 			core.colorize(accent_gold, "+ "),
-			core.colorize(text_light, "Разовая покупка — навсегда"), "]",
+			core.colorize(text_light, "Разовая покупка — комфорт"), "]",
 		
 		-- Pricing section
 		"box[", padding, ",4.1;", content_w, ",0.7;", bg_card, "]",
@@ -168,9 +171,7 @@ local function handle_fullversion_buttons(this, fields)
 	if this.data.purchase_success then
 		core.log("action", "[Vococraft] Purchase completed successfully (async)")
 		
-		-- Send success analytics
-		send_purchase_analytics("success", PRODUCT_ID)
-		
+		-- Analytics already sent in event handler, just close dialog
 		current_fullversion_dialog = nil  -- Clear reference
 		this:delete()
 		
@@ -185,9 +186,7 @@ local function handle_fullversion_buttons(this, fields)
 	end
 	
 	if this.data.purchase_error then
-		-- Send failed analytics
-		send_purchase_analytics("failed", PRODUCT_ID, this.data.purchase_error)
-		
+		-- Analytics already sent in event handler
 		gamedata.errormessage = fgettext_ne("Purchase error") .. ": " .. this.data.purchase_error
 		this.data.purchase_error = nil
 		ui.update()
@@ -195,6 +194,9 @@ local function handle_fullversion_buttons(this, fields)
 	end
 	
 	if fields.btn_close or fields.quit then
+		-- Send analytics for dialog close without purchase
+		send_window_analytics("close", "user_closed")
+		
 		-- Reset purchase state if user closes dialog during purchase
 		vococraft_subscription.purchase_in_progress = false
 		current_fullversion_dialog = nil  -- Clear reference
@@ -208,6 +210,9 @@ local function handle_fullversion_buttons(this, fields)
 		if info.purchase_in_progress then
 			return true -- Ignore if already purchasing
 		end
+		
+		-- Send analytics: user clicked buy button
+		send_purchase_analytics("started", PRODUCT_ID)
 		
 		-- Start purchase (async, result will be checked in get_fullversion_formspec)
 		vococraft_subscription.purchase()
