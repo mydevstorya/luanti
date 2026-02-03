@@ -1022,6 +1022,21 @@ int ModApiMainMenu::l_share_file(lua_State *L)
 }
 
 /******************************************************************************/
+int ModApiMainMenu::l_copy_to_clipboard(lua_State *L)
+{
+	const char *text = luaL_checkstring(L, 1);
+
+#ifdef __ANDROID__
+	porting::copyToClipboard(text);
+	lua_pushboolean(L, true);
+#else
+	// TODO: implement for other platforms
+	lua_pushboolean(L, false);
+#endif
+	return 1;
+}
+
+/******************************************************************************/
 int ModApiMainMenu::l_send_analytics_event(lua_State *L)
 {
 	const char *eventName = luaL_checkstring(L, 1);
@@ -1611,6 +1626,7 @@ void ModApiMainMenu::Initialize(lua_State *L, int top)
 	API_FCT(open_dir);
 	API_FCT(share_file);
 	API_FCT(do_async_callback);
+	API_FCT(copy_to_clipboard);
 	API_FCT(send_analytics_event);
 	API_FCT(send_world_created_event);
 	API_FCT(scan_lan_servers);

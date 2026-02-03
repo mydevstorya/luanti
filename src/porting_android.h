@@ -93,6 +93,12 @@ float getDisplayDensity();
 v2u32 getDisplaySize();
 
 /**
+ * Copy text to system clipboard
+ * @param text Text to copy
+ */
+void copyToClipboard(const std::string &text);
+
+/**
  * Send an analytics event (AppMetrica)
  * @param eventName Name of the event
  */

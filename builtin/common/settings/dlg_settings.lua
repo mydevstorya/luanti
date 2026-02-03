@@ -499,7 +499,8 @@ local function get_formspec(dialogdata)
 	local search_width = left_pane_width + scrollbar_w - (0.75 * 2)
 
 	local back_w = 3
-	local checkbox_w = (tabsize.width - back_w - 2*0.2) / 2
+	local copy_id_w = PLATFORM == "Android" and 2.5 or 0  -- Only show on Android
+	local checkbox_w = (tabsize.width - back_w - copy_id_w - 3*0.2) / 2
 	local show_technical_names = core.settings:get_bool("show_technical_names")
 	local show_advanced = core.settings:get_bool("show_advanced")
 
@@ -520,16 +521,21 @@ local function get_formspec(dialogdata)
 				tabsize.height + 0.2, back_w,
 				fgettext("Back")),
 
+		-- Copy ID button (Android only)
+		PLATFORM == "Android" and ("button[%f,%f;%f,0.8;copy_user_id;%s]"):format(
+				back_w + 0.2, tabsize.height + 0.2, copy_id_w,
+				fgettext("Copy ID")) or "",
+
 		("box[%f,%f;%f,0.8;#0000008C]"):format(
-			back_w + 0.2, tabsize.height + 0.2, checkbox_w),
+			back_w + copy_id_w + 2*0.2, tabsize.height + 0.2, checkbox_w),
 		("checkbox[%f,%f;show_technical_names;%s;%s]"):format(
-			back_w + 2*0.2, tabsize.height + 0.6,
+			back_w + copy_id_w + 3*0.2, tabsize.height + 0.6,
 			fgettext("Show technical names"), tostring(show_technical_names)),
 
 		("box[%f,%f;%f,0.8;#0000008C]"):format(
-			back_w + 2*0.2 + checkbox_w, tabsize.height + 0.2, checkbox_w),
+			back_w + copy_id_w + 3*0.2 + checkbox_w, tabsize.height + 0.2, checkbox_w),
 		("checkbox[%f,%f;show_advanced;%s;%s]"):format(
-			back_w + 3*0.2 + checkbox_w, tabsize.height + 0.6,
+			back_w + copy_id_w + 4*0.2 + checkbox_w, tabsize.height + 0.6,
 			fgettext("Show advanced settings"), tostring(show_advanced)),
 
 		"field[0.25,0.25;", tostring(search_width), ",0.75;search_query;;",
@@ -685,6 +691,22 @@ local function buttonhandler(this, fields)
 	-- "fields.quit" is for the pause menu env
 	if fields.back or fields.quit then
 		this:delete()
+		return true
+	end
+
+	-- Copy User ID to clipboard (Android only)
+	if fields.copy_user_id then
+		if core.yookassa_get_device_uuid then
+			local uuid = core.yookassa_get_device_uuid()
+			if uuid and uuid ~= "" then
+				if core.copy_to_clipboard then
+					core.copy_to_clipboard(uuid)
+					core.log("action", "[Settings] User ID copied to clipboard")
+				else
+					core.log("warning", "[Settings] copy_to_clipboard not available")
+				end
+			end
+		end
 		return true
 	end
 

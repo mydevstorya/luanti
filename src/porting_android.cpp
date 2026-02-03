@@ -367,6 +367,32 @@ bool hasPhysicalKeyboardAndroid()
 
 // Analytics functions (AppMetrica)
 
+void copyToClipboard(const std::string &text)
+{
+	jclass nativeLibClass = jnienv->FindClass("com/VocoCraft/VocoCraft/GameActivity");
+	if (nativeLibClass == nullptr) {
+		errorstream << "[Clipboard] GameActivity class not found" << std::endl;
+		jnienv->ExceptionClear();
+		return;
+	}
+
+	jmethodID copyMethod = jnienv->GetStaticMethodID(nativeLibClass,
+			"copyToClipboard", "(Ljava/lang/String;)V");
+
+	if (copyMethod == nullptr) {
+		errorstream << "[Clipboard] copyToClipboard method not found" << std::endl;
+		jnienv->ExceptionClear();
+		jnienv->DeleteLocalRef(nativeLibClass);
+		return;
+	}
+
+	jstring jText = jnienv->NewStringUTF(text.c_str());
+	jnienv->CallStaticVoidMethod(nativeLibClass, copyMethod, jText);
+	jnienv->DeleteLocalRef(jText);
+	jnienv->DeleteLocalRef(nativeLibClass);
+	infostream << "[Clipboard] Text copied to clipboard" << std::endl;
+}
+
 void sendAnalyticsEvent(const std::string &eventName)
 {
 	jclass analyticsClass = jnienv->FindClass("com/VocoCraft/VocoCraft/Analytics");

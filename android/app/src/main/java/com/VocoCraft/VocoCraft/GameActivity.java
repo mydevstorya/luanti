@@ -44,6 +44,8 @@ import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.Toast;
 import android.content.res.Configuration;
+import android.content.ClipboardManager;
+import android.content.ClipData;
 
 import androidx.annotation.Keep;
 import androidx.appcompat.app.AlertDialog;
@@ -63,6 +65,9 @@ public class GameActivity extends SDLActivity {
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		
+		// Save instance for static methods (clipboard, etc.)
+		instance = this;
 		
 		// Initialize Yandex Mobile Ads
 		YandexAds.init(this);
@@ -157,12 +162,37 @@ public class GameActivity extends SDLActivity {
 	private DialogState inputDialogState = DialogState.DIALOG_CANCELED;
 	private String messageReturnValue = "";
 	private int selectionReturnValue = 0;
+	
+	private static GameActivity instance;
 
 	private native void saveSettings();
 	private native void nativeOnActivityResumed();
 	
 	// Called from RuStorePay when purchase completes - triggers UI refresh
 	public native void nativeOnPurchaseComplete();
+	
+	/**
+	 * Copy text to system clipboard. Called from native code via JNI.
+	 * @param text Text to copy
+	 */
+	@Keep
+	public static void copyToClipboard(String text) {
+		if (instance == null) {
+			Log.e(TAG, "copyToClipboard: instance is null");
+			return;
+		}
+		instance.runOnUiThread(() -> {
+			try {
+				ClipboardManager clipboard = (ClipboardManager) instance.getSystemService(Context.CLIPBOARD_SERVICE);
+				ClipData clip = ClipData.newPlainText("Vococraft User ID", text);
+				clipboard.setPrimaryClip(clip);
+				Toast.makeText(instance, "ID скопирован", Toast.LENGTH_SHORT).show();
+				Log.i(TAG, "Text copied to clipboard");
+			} catch (Exception e) {
+				Log.e(TAG, "Failed to copy to clipboard: " + e.getMessage());
+			}
+		});
+	}
 
 	@Override
 	protected void onStop() {
