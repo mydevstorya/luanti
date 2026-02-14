@@ -282,8 +282,13 @@ function install_or_update_package(parent, package)
 	-- Check if subscription is required (for all downloadable content)
 	if vococraft_subscription then
 		if not vococraft_subscription.has_subscription() then
-			-- Show subscription dialog
-			show_subscription_dialog(parent, package, install_or_update_package_internal)
+			-- Show native Android overlay purchase dialog
+			if core.show_native_purchase_dialog then
+				core.show_native_purchase_dialog("mod_install")
+			else
+				-- Fallback for PC / non-Android
+				show_subscription_dialog(parent, package, install_or_update_package_internal)
+			end
 			return
 		end
 	end

@@ -193,6 +193,12 @@ private:
 	static int l_yookassa_start_confirmation(lua_State *L);
 	static int l_check_activity_resumed(lua_State *L);
 
+	// Native purchase dialog overlay
+	static int l_show_native_purchase_dialog(lua_State *L);
+
+	// Trial timer
+	static int l_get_trial_remaining_seconds(lua_State *L);
+
 	// async
 	static int l_do_async_callback(lua_State *L);
 

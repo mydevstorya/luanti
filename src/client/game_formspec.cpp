@@ -314,8 +314,8 @@ void GameFormSpec::showNodeFormspec(const std::string &formspec, const v3s16 &no
 }
 
 #ifdef __ANDROID__
-// Cooldown tracking for interstitial ads (3.5 minutes = 210 seconds)
-static constexpr int INTERSTITIAL_COOLDOWN_SECONDS = 210; // 3.5 minutes
+// Cooldown tracking for interstitial ads (2 minutes)
+static constexpr int INTERSTITIAL_COOLDOWN_SECONDS = 120; // 2 minutes
 static std::chrono::steady_clock::time_point s_last_interstitial_time = std::chrono::steady_clock::now();
 
 static void tryShowInterstitialWithCooldown()

@@ -107,12 +107,12 @@ local function get_formspec(tabview, name, tabdata)
 	
 	local W = 16
 	
-	-- === VOCOCRAFT: Increase height if premium button is shown ===
+	-- === VOCOCRAFT: Increase height if premium button + timer is shown ===
 	local H = 9.5
 	local PREMIUM_BTN_H = 0
 	if vococraft_subscription and not vococraft_subscription.has_subscription() then
-		PREMIUM_BTN_H = 1.0
-		H = 10.5  -- Increase total height to fit premium button
+		PREMIUM_BTN_H = 1.3
+		H = 10.8  -- Increase total height to fit timer label + premium button
 	end
 	-- === END VOCOCRAFT ===
 
@@ -314,7 +314,7 @@ local function get_formspec(tabview, name, tabdata)
 		table.insert(fs, servers_fs)
 	end
 
-	-- === VOCOCRAFT: Show "Unlock Premium" button if no subscription ===
+	-- === VOCOCRAFT: Show trial timer and "Unlock Premium" if no subscription ===
 	if vococraft_subscription and not vococraft_subscription.has_subscription() then
 		local sub_btn_y = H - 0.85
 		local sub_btn_h = 0.7
@@ -324,11 +324,31 @@ local function get_formspec(tabview, name, tabdata)
 		-- Background box for button area
 		table.insert(fs, "box[0," .. (H - 0.95) .. ";" .. W .. ",0.95;#1e1e1e]")
 		
+		-- Trial timer display
+		local trial_remaining = 0
+		if core.get_trial_remaining_seconds then
+			trial_remaining = core.get_trial_remaining_seconds()
+		end
+		
+		local timer_text
+		if trial_remaining <= 0 then
+			timer_text = core.colorize("#FF5252", "Бесплатное время закончилось")
+		else
+			local minutes = math.floor(trial_remaining / 60)
+			local seconds = trial_remaining % 60
+			local time_str = string.format("%d:%02d", minutes, seconds)
+			timer_text = core.colorize("#FFD54F", "⏱ Осталось " .. time_str .. " бесплатной игры")
+		end
+		
+		table.insert(fs, "style_type[label;font_size=*0.8]")
+		table.insert(fs, "label[" .. (sub_btn_x + 0.1) .. "," .. (sub_btn_y - 0.25) .. ";" .. timer_text .. "]")
+		table.insert(fs, "style_type[label;font_size=*1.0]")
+		
 		-- Purple premium button at bottom - bright and noticeable
 		table.insert(fs, "style[btn_unlock_premium;bgcolor=#9c27b0;border=true;font_size=*1.2;textcolor=#ffffff]")
 		table.insert(fs, "style[btn_unlock_premium:hovered;bgcolor=#ba68c8]")
 		table.insert(fs, "style[btn_unlock_premium:pressed;bgcolor=#7b1fa2]")
-		table.insert(fs, "button[" .. sub_btn_x .. "," .. sub_btn_y .. ";" .. sub_btn_w .. "," .. sub_btn_h .. ";btn_unlock_premium;★ " .. fgettext("Unlock Premium - play with mods and no ads") .. " ★]")
+		table.insert(fs, "button[" .. sub_btn_x .. "," .. sub_btn_y .. ";" .. sub_btn_w .. "," .. sub_btn_h .. ";btn_unlock_premium;" .. fgettext("Unlock Premium - play with mods and no ads") .. "]")
 	end
 	-- === END VOCOCRAFT ===
 
@@ -343,7 +363,13 @@ local function main_button_handler(this, fields, name, tabdata)
 
 	-- === VOCOCRAFT: Handle unlock premium button ===
 	if fields.btn_unlock_premium then
-		show_subscription_dialog(this, nil, nil)
+		-- Use native Android overlay purchase dialog
+		if core.show_native_purchase_dialog then
+			core.show_native_purchase_dialog("main_menu")
+		else
+			-- Fallback for PC / non-Android
+			show_subscription_dialog(this, nil, nil)
+		end
 		return true
 	end
 	-- === END VOCOCRAFT ===

@@ -609,6 +609,105 @@ bool tryShowInterstitial()
 	return result;
 }
 
+void showNativePurchaseDialog(const std::string &source)
+{
+	if (jnienv == nullptr || activity == nullptr || activityClass == nullptr) {
+		errorstream << "[PurchasePrompt JNI] showNativePurchaseDialog() - JNI not initialized" << std::endl;
+		return;
+	}
+	
+	infostream << "[PurchasePrompt JNI] showNativePurchaseDialog(source=" << source << ")" << std::endl;
+	
+	jmethodID showMethod = jnienv->GetMethodID(activityClass, "showNativePurchaseDialog", "(Ljava/lang/String;)V");
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		errorstream << "[PurchasePrompt JNI] Exception getting showNativePurchaseDialog method" << std::endl;
+		return;
+	}
+	if (showMethod == nullptr) {
+		errorstream << "[PurchasePrompt JNI] showNativePurchaseDialog method not found" << std::endl;
+		return;
+	}
+	
+	jstring jSource = jnienv->NewStringUTF(source.c_str());
+	jnienv->CallVoidMethod(activity, showMethod, jSource);
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		errorstream << "[PurchasePrompt JNI] Exception in showNativePurchaseDialog" << std::endl;
+	}
+	jnienv->DeleteLocalRef(jSource);
+	infostream << "[PurchasePrompt JNI] showNativePurchaseDialog called" << std::endl;
+}
+
+void showUnclosablePurchaseDialog()
+{
+	if (jnienv == nullptr || activity == nullptr || activityClass == nullptr) {
+		errorstream << "[PurchasePrompt JNI] showUnclosablePurchaseDialog() - JNI not initialized" << std::endl;
+		return;
+	}
+	
+	infostream << "[PurchasePrompt JNI] showUnclosablePurchaseDialog()" << std::endl;
+	
+	jmethodID showMethod = jnienv->GetMethodID(activityClass, "showUnclosablePurchaseDialog", "()V");
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		errorstream << "[PurchasePrompt JNI] Exception getting showUnclosablePurchaseDialog method" << std::endl;
+		return;
+	}
+	if (showMethod == nullptr) {
+		errorstream << "[PurchasePrompt JNI] showUnclosablePurchaseDialog method not found" << std::endl;
+		return;
+	}
+	
+	jnienv->CallVoidMethod(activity, showMethod);
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		errorstream << "[PurchasePrompt JNI] Exception in showUnclosablePurchaseDialog" << std::endl;
+	}
+}
+
+// ==================== Trial Timer ====================
+
+int getTrialElapsedSeconds()
+{
+	if (jnienv == nullptr || activity == nullptr || activityClass == nullptr)
+		return 0;
+	
+	jmethodID method = jnienv->GetMethodID(activityClass, "getTrialElapsedSeconds", "()I");
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		return 0;
+	}
+	if (method == nullptr)
+		return 0;
+	
+	int result = jnienv->CallIntMethod(activity, method);
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		return 0;
+	}
+	return result;
+}
+
+void saveTrialElapsedSeconds(int seconds)
+{
+	if (jnienv == nullptr || activity == nullptr || activityClass == nullptr)
+		return;
+	
+	jmethodID method = jnienv->GetMethodID(activityClass, "saveTrialElapsedSeconds", "(I)V");
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		return;
+	}
+	if (method == nullptr)
+		return;
+	
+	jnienv->CallVoidMethod(activity, method, (jint)seconds);
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+	}
+}
+
 // ==================== RuStore Pay SDK (commented out - replaced by YooKassa) ====================
 /*
 static jclass getRuStorePayClass()

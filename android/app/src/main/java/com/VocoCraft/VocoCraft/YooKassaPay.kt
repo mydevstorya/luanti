@@ -941,6 +941,8 @@ class YooKassaPay private constructor(private val context: Context) {
 
         try {
             Log.d(TAG, "Triggering native UI refresh...")
+            // Dismiss purchase dialog if showing (important for unclosable trial-expired dialog)
+            PurchasePromptDialog.dismiss()
             (currentActivity as? GameActivity)?.nativeOnPurchaseComplete()
                 ?: Log.w(TAG, "Activity is not GameActivity")
         } catch (e: Exception) {

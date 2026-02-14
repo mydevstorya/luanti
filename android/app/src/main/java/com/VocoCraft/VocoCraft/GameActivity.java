@@ -86,10 +86,16 @@ public class GameActivity extends SDLActivity {
 			handlePaymentIntent(getIntent());
 		}
 		
-		// Try to show review dialog after a short delay (let app fully load)
-		// new Handler(Looper.getMainLooper()).postDelayed(() -> {
-		// 	RuStoreReview.tryShowReview();
-		// }, 3000); // 3 seconds delay
+		// Initialize InternetCheckService after a short delay to allow layout to be ready
+		new Handler(Looper.getMainLooper()).postDelayed(() -> {
+			if (mLayout != null) {
+				InternetCheckService.init(this, mLayout);
+				InternetCheckService.start();
+				Log.d(TAG, "InternetCheckService initialized and started");
+			} else {
+				Log.w(TAG, "Cannot init InternetCheckService: mLayout is null");
+			}
+		}, 5000); // 5 seconds delay to allow game to fully load
 	}
 	
 	@Override
@@ -106,6 +112,18 @@ public class GameActivity extends SDLActivity {
 		// This triggers UI refresh in Lua to detect purchase completion
 		Log.d(TAG, "onResume - notifying native for UI refresh");
 		nativeOnActivityResumed();
+		
+		// Resume internet connectivity checks
+		InternetCheckService.start();
+		// Force an immediate check when returning to the game
+		InternetCheckService.checkNow();
+	}
+	
+	@Override
+	protected void onPause() {
+		// Pause internet connectivity checks while app is in background
+		InternetCheckService.stop();
+		super.onPause();
 	}
 	
 	@Override
@@ -482,6 +500,52 @@ public class GameActivity extends SDLActivity {
 	}
 	
 	/**
+	 * Show native purchase overlay dialog.
+	 * Called from native code (via JNI) when Lua requests the purchase dialog.
+	 * @param source Analytics source tag (e.g. "main_menu", "mod_install", "after_interstitial")
+	 */
+	public void showNativePurchaseDialog(String source) {
+		Log.d(TAG, "showNativePurchaseDialog() called from native, source: " + source);
+		PurchasePromptDialog.show(this, source != null ? source : "main_menu");
+	}
+	
+	/**
+	 * Show UNCLOSABLE purchase dialog (trial expired).
+	 * No close button, no "not now" — user must purchase to continue.
+	 */
+	public void showUnclosablePurchaseDialog() {
+		Log.d(TAG, "showUnclosablePurchaseDialog() called from native (trial expired)");
+		PurchasePromptDialog.showUnclosable(this);
+	}
+	
+	/**
+	 * Get trial elapsed seconds from SharedPreferences backup.
+	 * Called from native code for trial timer persistence.
+	 */
+	public int getTrialElapsedSeconds() {
+		try {
+			android.content.SharedPreferences prefs = getSharedPreferences("vococraft_trial", Context.MODE_PRIVATE);
+			return prefs.getInt("elapsed_seconds", 0);
+		} catch (Exception e) {
+			Log.e(TAG, "Error getting trial elapsed seconds: " + e.getMessage());
+			return 0;
+		}
+	}
+	
+	/**
+	 * Save trial elapsed seconds to SharedPreferences backup.
+	 * Called from native code for trial timer persistence.
+	 */
+	public void saveTrialElapsedSeconds(int seconds) {
+		try {
+			android.content.SharedPreferences prefs = getSharedPreferences("vococraft_trial", Context.MODE_PRIVATE);
+			prefs.edit().putInt("elapsed_seconds", seconds).apply();
+		} catch (Exception e) {
+			Log.e(TAG, "Error saving trial elapsed seconds: " + e.getMessage());
+		}
+	}
+	
+	/**
 	 * Try to show interstitial ad.
 	 * @return true if ad will be shown, false if no ad available
 	 */
@@ -492,6 +556,8 @@ public class GameActivity extends SDLActivity {
 			public void onInterstitialDismissed() {
 				Log.d(TAG, "Interstitial dismissed, notifying native");
 				onInterstitialDismissedNative();
+				// Show purchase prompt after ad dismissal
+				PurchasePromptDialog.show(GameActivity.this);
 			}
 			
 			@Override
@@ -509,6 +575,20 @@ public class GameActivity extends SDLActivity {
 	@Override
 	protected void onDestroy() {
 		Log.d(TAG, "GameActivity.onDestroy() called");
+		
+		// Destroy internet check service
+		try {
+			InternetCheckService.destroy();
+		} catch (Exception e) {
+			Log.e(TAG, "Error destroying InternetCheckService: " + e.getMessage());
+		}
+		
+		// Dismiss purchase prompt dialog if showing
+		try {
+			PurchasePromptDialog.dismiss();
+		} catch (Exception e) {
+			Log.e(TAG, "Error dismissing PurchasePromptDialog: " + e.getMessage());
+		}
 		
 		// Destroy ads BEFORE super.onDestroy() to ensure proper cleanup
 		try {

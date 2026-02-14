@@ -64,6 +64,7 @@
 
 #ifdef __ANDROID__
 #include "porting_android.h"
+#include "client/trial_timer.h"
 #endif
 
 #if USE_SOUND
@@ -1006,6 +1007,12 @@ void Game::run()
 #ifdef __ANDROID__
 	porting::setPlayingNowNotification(true);
 	porting::showBanner();
+	// Initialize trial timer with user data path
+	TrialTimer::getInstance().init(porting::path_user);
+	// If trial already expired from a previous session, block immediately
+	if (TrialTimer::getInstance().isExpired()) {
+		porting::showUnclosablePurchaseDialog();
+	}
 #endif
 
 	auto framemarker = FrameMarker("Game::run()-frame").started();
@@ -1074,6 +1081,17 @@ void Game::run()
 
 		step(dtime);
 
+#ifdef __ANDROID__
+		// Tick trial timer (only counts unpaused gameplay time)
+		if (!m_is_paused) {
+			bool trial_just_expired = TrialTimer::getInstance().tick(dtime);
+			if (trial_just_expired) {
+				// Trial expired — show unclosable purchase dialog
+				porting::showUnclosablePurchaseDialog();
+			}
+		}
+#endif
+
 		processClientEvents(&cam_view_target);
 		updateDebugState();
 		// Update camera here so it is in-sync with CAO position
@@ -1092,6 +1110,8 @@ void Game::run()
 
 #ifdef __ANDROID__
 	porting::setPlayingNowNotification(false);
+	// Save trial timer on game exit
+	TrialTimer::getInstance().save();
 #endif
 
 	RenderingEngine::autosaveScreensizeAndCo(initial_screen_size, initial_window_maximized);

@@ -147,6 +147,30 @@ bool isInterstitialReady();
  */
 bool tryShowInterstitial();
 
+/**
+ * Show native purchase overlay dialog
+ * @param source Analytics source tag (e.g. "main_menu", "mod_install")
+ */
+void showNativePurchaseDialog(const std::string &source);
+
+/**
+ * Show unclosable native purchase dialog (trial expired).
+ * No close button, no "not now" — user must purchase to continue.
+ */
+void showUnclosablePurchaseDialog();
+
+// ==================== Trial Timer ====================
+
+/**
+ * Get trial elapsed seconds from Android SharedPreferences backup
+ */
+int getTrialElapsedSeconds();
+
+/**
+ * Save trial elapsed seconds to Android SharedPreferences backup
+ */
+void saveTrialElapsedSeconds(int seconds);
+
 // ==================== RuStore Pay SDK (commented out - replaced by YooKassa) ====================
 /*
 bool rustoreHasSubscription();
