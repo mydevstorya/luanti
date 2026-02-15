@@ -96,6 +96,42 @@
 			android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
 			tools:replace="android:screenOrientation,android:configChanges" />
 
+		<activity
+			android:name="ru.yoomoney.sdk.kassa.payments.confirmation.ConfirmationActivity"
+			android:screenOrientation="sensorLandscape"
+			android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+			tools:replace="android:screenOrientation,android:configChanges" />
+
+		<activity
+			android:name="ru.yoomoney.sdk.kassa.payments.contract.additional_info.AdditionalInfoActivity"
+			android:screenOrientation="sensorLandscape"
+			android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+			tools:replace="android:screenOrientation,android:configChanges" />
+
+		<activity
+			android:name="ru.yoomoney.sdk.auth.AuthEntryActivity"
+			android:screenOrientation="sensorLandscape"
+			android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+			tools:replace="android:screenOrientation,android:configChanges" />
+
+		<activity
+			android:name="ru.yoomoney.sdk.auth.AccountActivity"
+			android:screenOrientation="sensorLandscape"
+			android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+			tools:replace="android:screenOrientation,android:configChanges" />
+
+		<activity
+			android:name="ru.yoomoney.sdk.auth.auxToken.AuxTokenIssueActivity"
+			android:screenOrientation="sensorLandscape"
+			android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+			tools:replace="android:screenOrientation,android:configChanges" />
+
+		<activity
+			android:name="ru.yoomoney.sdk.auth.qrAuth.QrAuthActivity"
+			android:screenOrientation="sensorLandscape"
+			android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+			tools:replace="android:screenOrientation,android:configChanges" />
+
 		<provider
 			android:name="androidx.core.content.FileProvider"
 			android:authorities="com.VocoCraft.VocoCraft.fileprovider"

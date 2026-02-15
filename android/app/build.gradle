@@ -178,10 +178,10 @@ dependencies {
 	implementation 'io.appmetrica.analytics:analytics:7.14.0'
 	// Yandex Mobile Ads SDK
 	implementation 'com.yandex.android:mobileads:7.18.1'
-	// RuStore SDKs - BOM версия (commented out, replaced by YooKassa)
-	// implementation(platform("ru.rustore.sdk:bom:2025.11.01"))
+	// RuStore SDKs - BOM версия (pay commented out, replaced by YooKassa)
+	implementation(platform("ru.rustore.sdk:bom:2025.11.01"))
 	// implementation("ru.rustore.sdk:pay")
-	// implementation("ru.rustore.sdk:review")
+	implementation("ru.rustore.sdk:review")
 	
 	// YooKassa SDK for payments
 	implementation 'ru.yoomoney.sdk.kassa.payments:yookassa-android-sdk:8.3.0'

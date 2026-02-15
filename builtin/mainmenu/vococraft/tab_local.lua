@@ -337,7 +337,7 @@ local function get_formspec(tabview, name, tabdata)
 			local minutes = math.floor(trial_remaining / 60)
 			local seconds = trial_remaining % 60
 			local time_str = string.format("%d:%02d", minutes, seconds)
-			timer_text = core.colorize("#FFD54F", "⏱ Осталось " .. time_str .. " бесплатной игры")
+			timer_text = core.colorize("#FFD54F", "Осталось " .. time_str .. " демо игры")
 		end
 		
 		table.insert(fs, "style_type[label;font_size=*0.8]")

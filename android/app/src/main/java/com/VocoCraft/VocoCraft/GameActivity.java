@@ -78,8 +78,8 @@ public class GameActivity extends SDLActivity {
 		// Initialize YooKassa Pay SDK
 		YooKassaPay.init(this);
 		
-		// Initialize RuStore Review (must be after RuStorePay)
-		// RuStoreReview.init(this);
+		// Initialize RuStore Review
+		RuStoreReview.init(this);
 		
 		// Handle deeplink if activity started from payment app
 		if (savedInstanceState == null) {
@@ -106,6 +106,16 @@ public class GameActivity extends SDLActivity {
 					PurchasePromptDialog.show(this, "auto_launch");
 				}
 			}, 3000); // 3 seconds — SDL surface needs time to stabilize
+		}
+
+		// Show RuStore review dialog for users who already purchased (after 3+ launches)
+		if (launchCount > 2 && YooKassaPay.hasPurchase()) {
+			new Handler(Looper.getMainLooper()).postDelayed(() -> {
+				if (!isFinishing() && !isDestroyed()) {
+					Log.d(TAG, "Trying to show RuStore review (launch #" + launchCount + ")");
+					RuStoreReview.tryShowReview();
+				}
+			}, 5000); // 5 seconds delay for purchased users
 		}
 	}
 	

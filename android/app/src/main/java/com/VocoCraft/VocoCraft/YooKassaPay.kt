@@ -58,11 +58,11 @@ class YooKassaPay private constructor(private val context: Context) {
         // Must be lowercase to match server config
         const val FULL_VERSION_PRODUCT_ID = "com.vococraft.vococraft.fullversion"
 
-        // Special offer product (discounted, available first 72 hours after install)
+        // Special offer product (discounted, available first 24 hours after install)
         const val SPECIAL_OFFER_PRODUCT_ID = "com.vococraft.vococraft.fullversion.special_offer"
 
-        // Special offer window: 72 hours in milliseconds
-        private const val SPECIAL_OFFER_WINDOW_MS = 72L * 60 * 60 * 1000
+        // Special offer window: 24 hours in milliseconds
+        private const val SPECIAL_OFFER_WINDOW_MS = 24L * 60 * 60 * 1000
         private const val PREFS_INSTALL_TIME = "first_install_time"
         private const val PREFS_LAUNCH_COUNT = "launch_count"
 
@@ -208,7 +208,7 @@ class YooKassaPay private constructor(private val context: Context) {
         @JvmStatic
         fun isSpecialOfferAvailable(): Boolean {
             val inst = instance ?: return false
-            // Show special offer UI whenever within 72h window,
+            // Show special offer UI whenever within 24h window,
             // regardless of whether special offer product has been fetched from backend
             return inst.isWithinSpecialOfferWindow()
         }
@@ -386,7 +386,7 @@ class YooKassaPay private constructor(private val context: Context) {
     }
 
     /**
-     * Check if current time is within the 72-hour special offer window.
+     * Check if current time is within the 24-hour special offer window.
      */
     fun isWithinSpecialOfferWindow(): Boolean {
         if (firstInstallTime == 0L) return false
