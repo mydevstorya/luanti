@@ -635,7 +635,7 @@ class YooKassaPay private constructor(private val context: Context) {
         } else {
             FULL_VERSION_PRODUCT_ID
         }
-        Log.i(TAG, "Using product ID: $pendingProductId")
+        Log.i(TAG, "Using product ID: $pendingProductId, amount=$amount, currency=$currency")
 
         try {
             val paymentAmount = Amount(BigDecimal(amount), Currency.getInstance(currency))
@@ -767,9 +767,11 @@ class YooKassaPay private constructor(private val context: Context) {
         val jsonBody = JSONObject().apply {
             put("uuid", uuid)
             put("app_id", appId)
-            put("product_id", FULL_VERSION_PRODUCT_ID)
+            put("product_id", pendingProductId ?: FULL_VERSION_PRODUCT_ID)
             put("payment_token", token)
         }
+
+        Log.d(TAG, "create-payment request: $jsonBody")
 
         val request = Request.Builder()
             .url("$BACKEND_URL/create-payment")
@@ -1098,13 +1100,16 @@ class YooKassaPay private constructor(private val context: Context) {
         }
 
         try {
-            Log.d(TAG, "Triggering native UI refresh...")
-            // Dismiss purchase dialog if showing (important for unclosable trial-expired dialog)
-            PurchasePromptDialog.dismiss()
-            // Dismiss internet blocker if showing
-            InternetCheckService.dismissBlocker()
-            (currentActivity as? GameActivity)?.nativeOnPurchaseComplete()
-                ?: Log.w(TAG, "Activity is not GameActivity")
+            Log.d(TAG, "Triggering native UI refresh... purchased=$isPurchased")
+            // Only dismiss dialogs/blockers if user actually purchased
+            if (isPurchased) {
+                PurchasePromptDialog.dismiss()
+                InternetCheckService.dismissBlocker()
+                // Hide the banner ad — user paid, no more ads
+                (currentActivity as? GameActivity)?.hideBanner()
+                (currentActivity as? GameActivity)?.nativeOnPurchaseComplete()
+                    ?: Log.w(TAG, "Activity is not GameActivity")
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to trigger native UI refresh: ${e.message}")
         } catch (e: UnsatisfiedLinkError) {

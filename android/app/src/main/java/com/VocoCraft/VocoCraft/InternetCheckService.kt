@@ -204,7 +204,7 @@ object InternetCheckService {
 
                 // Send analytics
                 try {
-                    Analytics.sendAdEvent(activity, "internet_check", "blocked", "no_internet")
+                    Analytics.sendEvent("internet_check", "blocked", "no_internet")
                 } catch (e: Exception) {
                     Log.e(TAG, "Error sending analytics: ${e.message}")
                 }
@@ -398,7 +398,7 @@ object InternetCheckService {
             setOnClickListener {
                 Log.d(TAG, "Buy button clicked from blocking overlay")
                 try {
-                    Analytics.sendAdEvent(activity, "internet_check", "buy_clicked", "blocking_overlay")
+                    Analytics.sendEvent("internet_check", "buy_clicked", "blocking_overlay")
                 } catch (e: Exception) {
                     Log.e(TAG, "Error sending analytics: ${e.message}")
                 }
@@ -436,7 +436,7 @@ object InternetCheckService {
             setOnClickListener {
                 Log.d(TAG, "Retry connection clicked")
                 try {
-                    Analytics.sendAdEvent(activity, "internet_check", "retry_clicked", "blocking_overlay")
+                    Analytics.sendEvent("internet_check", "retry_clicked", "blocking_overlay")
                 } catch (e: Exception) {
                     Log.e(TAG, "Error sending analytics: ${e.message}")
                 }
@@ -448,7 +448,7 @@ object InternetCheckService {
                             Log.i(TAG, "Internet restored via retry — unblocking game")
                             mainHandler.post { removeOverlay() }
                             try {
-                                Analytics.sendAdEvent(activity, "internet_check", "unblocked", "retry_success")
+                                Analytics.sendEvent("internet_check", "unblocked", "retry_success")
                             } catch (e: Exception) {
                                 Log.e(TAG, "Error sending analytics: ${e.message}")
                             }

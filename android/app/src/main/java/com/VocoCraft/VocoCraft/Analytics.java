@@ -188,6 +188,26 @@ public class Analytics {
     }
     
     /**
+     * Send a generic event with action and detail parameters.
+     * Unlike sendAdEvent, the event name has no prefix.
+     *
+     * @param eventName Name of the event (e.g. "internet_check")
+     * @param action    Action performed (e.g. "blocked", "retry_clicked")
+     * @param detail    Additional detail string
+     */
+    @Keep
+    public static void sendEvent(String eventName, String action, String detail) {
+        if (!initialized) return;
+        Map<String, Object> params = new HashMap<>();
+        params.put("action", action);
+        if (detail != null) {
+            params.put("detail", detail);
+        }
+        AppMetrica.reportEvent(eventName, params);
+        Log.d(TAG, "Event: " + eventName + ", action=" + action + ", detail=" + detail);
+    }
+
+    /**
      * Send ad-related event for tracking ad performance.
      * Events are sent as "ad_banner" or "ad_interstitial" with structured parameters.
      * 
