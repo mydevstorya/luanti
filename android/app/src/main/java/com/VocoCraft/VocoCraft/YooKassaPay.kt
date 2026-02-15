@@ -18,9 +18,12 @@
 package com.VocoCraft.VocoCraft
 
 import android.app.Activity
+import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.content.pm.ActivityInfo
+import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
 import androidx.annotation.Keep
@@ -135,6 +138,34 @@ class YooKassaPay private constructor(private val context: Context) {
             }
             instance?.activity = activity
             instance?.loadFromCache()
+
+            // Force landscape on all YooKassa SDK activities.
+            // The SDK calls setRequestedOrientation(PORTRAIT) in onCreate AFTER super.onCreate(),
+            // so onActivityCreated (which fires during super.onCreate) gets overwritten.
+            // We use onActivityResumed which fires AFTER onCreate completes.
+            activity.application.registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
+                private val SDK_PACKAGES = listOf(
+                    "ru.yoomoney.sdk.kassa.payments",
+                    "ru.yoomoney.sdk.auth"
+                )
+
+                private fun isSdkActivity(act: Activity): Boolean {
+                    return SDK_PACKAGES.any { act.javaClass.name.startsWith(it) }
+                }
+
+                override fun onActivityCreated(act: Activity, savedInstanceState: Bundle?) {}
+                override fun onActivityStarted(act: Activity) {}
+                override fun onActivityResumed(act: Activity) {
+                    if (isSdkActivity(act)) {
+                        act.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                        Log.d(TAG, "Forced sensorLandscape on ${act.javaClass.simpleName}")
+                    }
+                }
+                override fun onActivityPaused(act: Activity) {}
+                override fun onActivityStopped(act: Activity) {}
+                override fun onActivitySaveInstanceState(act: Activity, outState: Bundle) {}
+                override fun onActivityDestroyed(act: Activity) {}
+            })
         }
 
         /**
@@ -1070,6 +1101,8 @@ class YooKassaPay private constructor(private val context: Context) {
             Log.d(TAG, "Triggering native UI refresh...")
             // Dismiss purchase dialog if showing (important for unclosable trial-expired dialog)
             PurchasePromptDialog.dismiss()
+            // Dismiss internet blocker if showing
+            InternetCheckService.dismissBlocker()
             (currentActivity as? GameActivity)?.nativeOnPurchaseComplete()
                 ?: Log.w(TAG, "Activity is not GameActivity")
         } catch (e: Exception) {

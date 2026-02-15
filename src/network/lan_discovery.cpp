@@ -298,8 +298,8 @@ void LANDiscoveryClient::scan(int timeout_ms)
 		
 		infostream << "LAN Discovery: Scan complete, found " << m_servers.size() << " servers" << std::endl;
 		
-	} catch (const std::exception &e) {
-		errorstream << "LAN Discovery Client error: " << e.what() << std::endl;
+	} catch (const std::exception &) {
+		// Silently ignore — network may be unavailable (Wi-Fi off, local game, etc.)
 	}
 }
 

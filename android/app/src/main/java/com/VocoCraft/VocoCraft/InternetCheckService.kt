@@ -210,15 +210,10 @@ object InternetCheckService {
                 }
             }
         } else {
+            // Internet restored, but do NOT auto-close the blocker.
+            // User must press "Retry" or "Buy" to dismiss.
             if (isBlocked.get()) {
-                Log.i(TAG, "Internet restored — unblocking game")
-                mainHandler.post { removeOverlay() }
-
-                try {
-                    Analytics.sendAdEvent(activity, "internet_check", "unblocked", "internet_restored")
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error sending analytics: ${e.message}")
-                }
+                Log.i(TAG, "Internet restored, but keeping blocker — user must press Retry or Buy")
             }
         }
     }
@@ -380,7 +375,7 @@ object InternetCheckService {
         }
 
         val buyButton = TextView(activity).apply {
-            text = "★ Купить полную версию ★"
+            text = "Купить полную версию"
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f)
             setTypeface(null, Typeface.BOLD)
@@ -407,31 +402,11 @@ object InternetCheckService {
                 } catch (e: Exception) {
                     Log.e(TAG, "Error sending analytics: ${e.message}")
                 }
-                startPurchase()
+                // Show purchase dialog on top of the blocker
+                PurchasePromptDialog.show(activity, "internet_blocker")
             }
         }
         contentContainer.addView(buyButton)
-
-        // Price hint
-        val priceHint = TextView(activity).apply {
-            val price = try {
-                val p = YooKassaPay.getProductPrice()
-                if (p.isNotEmpty()) p else "249 ₽"
-            } catch (e: Exception) {
-                "249 ₽"
-            }
-            text = "Разовая покупка за $price — навсегда без рекламы"
-            setTextColor(Color.parseColor("#999999"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-            gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply {
-                bottomMargin = (20 * density).toInt()
-            }
-        }
-        contentContainer.addView(priceHint)
 
         // "Retry connection" button
         val retryBtnBg = GradientDrawable().apply {
@@ -465,8 +440,25 @@ object InternetCheckService {
                 } catch (e: Exception) {
                     Log.e(TAG, "Error sending analytics: ${e.message}")
                 }
-                // Perform immediate check in background
-                checkNow()
+                // Check connectivity and remove overlay if internet is back
+                scheduler.execute {
+                    try {
+                        val hasInternet = checkConnectivity(activity)
+                        if (hasInternet) {
+                            Log.i(TAG, "Internet restored via retry — unblocking game")
+                            mainHandler.post { removeOverlay() }
+                            try {
+                                Analytics.sendAdEvent(activity, "internet_check", "unblocked", "retry_success")
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Error sending analytics: ${e.message}")
+                            }
+                        } else {
+                            Log.d(TAG, "Retry: still no internet")
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error during retry check: ${e.message}")
+                    }
+                }
             }
         }
         contentContainer.addView(retryButton)
@@ -484,6 +476,18 @@ object InternetCheckService {
         }
     }
 
+    /**
+     * Dismiss the blocking overlay (e.g. after successful purchase).
+     * Called from YooKassaPay when purchase completes.
+     */
+    @JvmStatic
+    fun dismissBlocker() {
+        if (isBlocked.get()) {
+            Log.i(TAG, "Dismissing blocker (purchase completed)")
+            mainHandler.post { removeOverlay() }
+        }
+    }
+
     private fun removeOverlay() {
         blockingOverlay?.let { overlay ->
             try {
@@ -497,21 +501,4 @@ object InternetCheckService {
         isBlocked.set(false)
     }
 
-    private fun startPurchase() {
-        try {
-            val amount = YooKassaPay.getProductAmount().ifEmpty { "249" }
-            val currency = YooKassaPay.getProductCurrency().ifEmpty { "RUB" }
-
-            YooKassaPay.clearOperationResult()
-            YooKassaPay.startPurchase(
-                amount,
-                currency,
-                "VocoCraft Полная версия",
-                "Разблокировка всех функций — играйте без рекламы и без ограничений"
-            )
-            Log.d(TAG, "Purchase started from blocking overlay")
-        } catch (e: Exception) {
-            Log.e(TAG, "Error starting purchase: ${e.message}")
-        }
-    }
 }
