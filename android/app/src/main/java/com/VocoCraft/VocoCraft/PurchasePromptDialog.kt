@@ -688,7 +688,7 @@ object PurchasePromptDialog {
     /**
      * Send structured analytics event for purchase window.
      * Event name: "purchase_window"
-     * Params: action, source, offer_type, price, currency, special_offer_remaining_seconds
+     * Params: action, source, offer_type, price, currency
      */
     private fun sendPurchaseWindowAnalytics(activity: Activity, action: String) {
         try {
@@ -711,9 +711,6 @@ object PurchasePromptDialog {
                 put("offer_type", offerType)
                 put("price", price)
                 put("currency", currency)
-                if (isSpecial) {
-                    put("special_offer_remaining_seconds", YooKassaPay.getSpecialOfferRemainingSeconds())
-                }
                 put("is_unclosable", isUnclosable)
             }
 
