@@ -7,6 +7,10 @@ def propfile = file('../local.properties')
 if (propfile.exists())
 	props.load(new FileInputStream(propfile))
 
+// Force BuildConfig regeneration when local.properties changes
+// (otherwise Gradle caches old ngrok URLs etc.)
+def localPropsInput = propfile.exists() ? propfile : null
+
 android {
 	ndkVersion "$ndk_version"
 	defaultConfig {
@@ -152,6 +156,15 @@ prepareAssets.dependsOn ':native:getDeps'
 
 clean {
 	delete new File("src/main/assets", "assets.zip")
+}
+
+// Force BuildConfig regeneration when local.properties changes
+afterEvaluate {
+	tasks.matching { it.name.contains('generateBuildConfig') || it.name.contains('GenerateBuildConfig') }.configureEach {
+		if (localPropsInput != null) {
+			inputs.file(localPropsInput)
+		}
+	}
 }
 
 dependencies {

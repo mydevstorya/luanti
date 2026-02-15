@@ -58,6 +58,14 @@ class YooKassaPay private constructor(private val context: Context) {
         // Must be lowercase to match server config
         const val FULL_VERSION_PRODUCT_ID = "com.vococraft.vococraft.fullversion"
 
+        // Special offer product (discounted, available first 72 hours after install)
+        const val SPECIAL_OFFER_PRODUCT_ID = "com.vococraft.vococraft.fullversion.special_offer"
+
+        // Special offer window: 72 hours in milliseconds
+        private const val SPECIAL_OFFER_WINDOW_MS = 72L * 60 * 60 * 1000
+        private const val PREFS_INSTALL_TIME = "first_install_time"
+        private const val PREFS_LAUNCH_COUNT = "launch_count"
+
         // Backend API URL (from local.properties via BuildConfig)
         // Uses debug URL for debug builds, prod URL for release builds
         private val BACKEND_URL: String
@@ -117,7 +125,7 @@ class YooKassaPay private constructor(private val context: Context) {
          */
         @JvmStatic
         fun init(activity: Activity) {
-            Log.i(TAG, "init() called")
+            Log.i(TAG, "init() called, DEBUG=${BuildConfig.DEBUG}, BACKEND_URL=$BACKEND_URL")
             if (instance == null) {
                 synchronized(this) {
                     if (instance == null) {
@@ -178,6 +186,57 @@ class YooKassaPay private constructor(private val context: Context) {
         @JvmStatic
         fun isProductInfoFetched(): Boolean {
             return instance?.productInfoFetched ?: false
+        }
+
+        // ==================== Special Offer ====================
+
+        @JvmStatic
+        fun getSpecialOfferPrice(): String {
+            return instance?.specialOfferPriceFormatted ?: ""
+        }
+
+        @JvmStatic
+        fun getSpecialOfferAmount(): String {
+            return instance?.specialOfferAmount ?: ""
+        }
+
+        @JvmStatic
+        fun getSpecialOfferCurrency(): String {
+            return instance?.specialOfferCurrency ?: "RUB"
+        }
+
+        @JvmStatic
+        fun isSpecialOfferAvailable(): Boolean {
+            val inst = instance ?: return false
+            // Show special offer UI whenever within 72h window,
+            // regardless of whether special offer product has been fetched from backend
+            return inst.isWithinSpecialOfferWindow()
+        }
+
+        /**
+         * Check if the special offer product price has been fetched from backend.
+         */
+        @JvmStatic
+        fun isSpecialOfferPriceFetched(): Boolean {
+            return instance?.specialOfferFetched ?: false
+        }
+
+        /**
+         * Get remaining seconds until special offer expires.
+         * Returns 0 if expired or not available.
+         */
+        @JvmStatic
+        fun getSpecialOfferRemainingSeconds(): Long {
+            val inst = instance ?: return 0
+            return inst.getSpecialOfferRemainingSecondsInternal()
+        }
+
+        /**
+         * Get the number of times the app has been launched (GameActivity created).
+         */
+        @JvmStatic
+        fun getLaunchCount(): Int {
+            return instance?.launchCount ?: 0
         }
 
         @JvmStatic
@@ -259,6 +318,14 @@ class YooKassaPay private constructor(private val context: Context) {
     private var productCurrency: String? = null    // Currency from backend (e.g. "RUB")
     private var productInfoFetched = false
 
+    // Special offer product info
+    private var specialOfferPriceFormatted: String? = null
+    private var specialOfferAmount: String? = null
+    private var specialOfferCurrency: String? = null
+    private var specialOfferFetched = false
+    private var firstInstallTime: Long = 0L
+    private var launchCount: Int = 0
+
     // Current payment flow state
     private var pendingPaymentId: String? = null
     private var pendingProductId: String? = null
@@ -284,8 +351,21 @@ class YooKassaPay private constructor(private val context: Context) {
         isPurchased = prefs.getBoolean(KEY_IS_PURCHASED, false)
         purchaseDateMs = prefs.getLong(KEY_PURCHASE_DATE, 0)
         cachedDeviceUuid = prefs.getString(KEY_DEVICE_UUID, null)
+
+        // Track first install time for special offer countdown
+        firstInstallTime = prefs.getLong(PREFS_INSTALL_TIME, 0L)
+        if (firstInstallTime == 0L) {
+            firstInstallTime = System.currentTimeMillis()
+            prefs.edit().putLong(PREFS_INSTALL_TIME, firstInstallTime).apply()
+            Log.i(TAG, "First install time recorded: $firstInstallTime")
+        }
+
+        // Track launch count (incremented each time GameActivity creates and inits YooKassaPay)
+        launchCount = prefs.getInt(PREFS_LAUNCH_COUNT, 0) + 1
+        prefs.edit().putInt(PREFS_LAUNCH_COUNT, launchCount).apply()
+        Log.i(TAG, "Launch count: $launchCount")
         
-        Log.i(TAG, "Loaded from cache: purchased=$isPurchased, date=$purchaseDateMs, uuid=${cachedDeviceUuid?.take(8)}...")
+        Log.i(TAG, "Loaded from cache: purchased=$isPurchased, date=$purchaseDateMs, uuid=${cachedDeviceUuid?.take(8)}..., installTime=$firstInstallTime")
     }
 
     private fun saveToCache() {
@@ -303,6 +383,24 @@ class YooKassaPay private constructor(private val context: Context) {
         isPurchased = false
         purchaseDateMs = 0
         Log.i(TAG, "Cache cleared")
+    }
+
+    /**
+     * Check if current time is within the 72-hour special offer window.
+     */
+    fun isWithinSpecialOfferWindow(): Boolean {
+        if (firstInstallTime == 0L) return false
+        val elapsed = System.currentTimeMillis() - firstInstallTime
+        return elapsed < SPECIAL_OFFER_WINDOW_MS
+    }
+
+    /**
+     * Get remaining seconds until special offer expires.
+     */
+    fun getSpecialOfferRemainingSecondsInternal(): Long {
+        if (firstInstallTime == 0L) return 0
+        val remaining = SPECIAL_OFFER_WINDOW_MS - (System.currentTimeMillis() - firstInstallTime)
+        return if (remaining > 0) remaining / 1000 else 0
     }
 
     /**
@@ -399,7 +497,7 @@ class YooKassaPay private constructor(private val context: Context) {
                             val productId = product.optString("id", "")
                             Log.d(TAG, "Product[$i]: id='$productId', full json=$product")
                             
-                            // Match by exact id
+                            // Match regular full version product
                             if (productId == FULL_VERSION_PRODUCT_ID) {
                                 // Get amount - handle both string and number types
                                 val amount = when {
@@ -421,7 +519,29 @@ class YooKassaPay private constructor(private val context: Context) {
                                 productInfoFetched = true
                                 found = true
                                 Log.i(TAG, "Product info fetched: amount=$amount, currency=$currency, formatted=$productPriceFormatted")
-                                break
+                            }
+
+                            // Match special offer product
+                            if (productId == SPECIAL_OFFER_PRODUCT_ID) {
+                                val amount = when {
+                                    product.has("amount") -> {
+                                        val amountVal = product.get("amount")
+                                        when (amountVal) {
+                                            is String -> amountVal
+                                            is Number -> amountVal.toString()
+                                            else -> null
+                                        }
+                                    }
+                                    else -> null
+                                }
+                                if (amount != null) {
+                                    val currency = product.optString("currency", "RUB")
+                                    specialOfferAmount = amount
+                                    specialOfferCurrency = currency
+                                    specialOfferPriceFormatted = formatPrice(amount, currency)
+                                    specialOfferFetched = true
+                                    Log.i(TAG, "Special offer fetched: amount=$amount, currency=$currency, formatted=$specialOfferPriceFormatted")
+                                }
                             }
                         }
                         
@@ -477,7 +597,14 @@ class YooKassaPay private constructor(private val context: Context) {
         }
 
         operationInProgress.set(true)
-        pendingProductId = FULL_VERSION_PRODUCT_ID
+
+        // Use special offer product ID if the offer is active and we have special offer pricing
+        pendingProductId = if (isWithinSpecialOfferWindow() && specialOfferFetched) {
+            SPECIAL_OFFER_PRODUCT_ID
+        } else {
+            FULL_VERSION_PRODUCT_ID
+        }
+        Log.i(TAG, "Using product ID: $pendingProductId")
 
         try {
             val paymentAmount = Amount(BigDecimal(amount), Currency.getInstance(currency))
@@ -896,7 +1023,7 @@ class YooKassaPay private constructor(private val context: Context) {
                         for (i in 0 until products.length()) {
                             val product = products.getJSONObject(i)
                             val productId = product.getString("product_id")
-                            if (productId == FULL_VERSION_PRODUCT_ID) {
+                            if (productId == FULL_VERSION_PRODUCT_ID || productId == SPECIAL_OFFER_PRODUCT_ID) {
                                 val isConsumed = product.optBoolean("is_consumed", false)
                                 if (!isConsumed) {
                                     foundPurchase = true

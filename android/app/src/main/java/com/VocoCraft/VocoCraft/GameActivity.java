@@ -96,6 +96,17 @@ public class GameActivity extends SDLActivity {
 				Log.w(TAG, "Cannot init InternetCheckService: mLayout is null");
 			}
 		}, 5000); // 5 seconds delay to allow game to fully load
+
+		// Auto-show purchase dialog after 3+ launches (if user hasn't purchased)
+		int launchCount = YooKassaPay.getLaunchCount();
+		if (launchCount > 2 && !YooKassaPay.hasPurchase()) {
+			new Handler(Looper.getMainLooper()).postDelayed(() -> {
+				if (!isFinishing() && !isDestroyed() && !YooKassaPay.hasPurchase()) {
+					Log.d(TAG, "Auto-showing purchase dialog (launch #" + launchCount + ")");
+					PurchasePromptDialog.show(this, "auto_launch");
+				}
+			}, 3000); // 3 seconds — SDL surface needs time to stabilize
+		}
 	}
 	
 	@Override
