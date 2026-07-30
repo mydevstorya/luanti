@@ -5,6 +5,8 @@ services:
       context: ../..
       dockerfile: Dockerfile
       target: runtime
+      args:
+        DOCKER_IMAGE: ${VOCOCRAFT_DOCKER_IMAGE:-mirror.gcr.io/library/alpine:3.23}
     container_name: vococraft-server
     restart: always
     init: true

@@ -27,6 +27,10 @@ docker compose -f deploy/server/compose.yaml build
 docker compose -f deploy/server/compose.yaml up -d
 ```
 
+The default build uses Google's public mirror for the Alpine base image to
+avoid anonymous Docker Hub rate limits. Set `VOCOCRAFT_DOCKER_IMAGE` to use a
+different compatible Alpine 3.23 image.
+
 For an existing server, copy the complete old world directory to
 `/opt/vococraft-server/data/world` before the first start and set ownership to
 `30000:30000`. Preserve `worldmods`, `auth.sqlite`, `players.sqlite`,
