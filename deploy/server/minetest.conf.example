@@ -1,0 +1,38 @@
+# Identity
+server_name = VocoCraft | Ванилка #1
+server_description = Чистая ванилка с дружным комьюнити.
+server_address = 5.129.203.134
+server_url =
+
+# Network
+port = 30000
+max_users = 50
+strict_protocol_version_checking = false
+
+# VocoCraft server list
+server_announce = true
+serverlist_url = https://mydevstorya-servers-6285.twc1.net
+server_announce_send_players = true
+
+# World and game
+default_game = vococraft
+creative_mode = false
+enable_damage = true
+enable_pvp = true
+default_privs = interact, shout
+mg_name = v7
+
+# Security
+disallow_empty_password = true
+default_password =
+name = admin
+
+# Performance
+max_block_send_distance = 10
+max_block_generate_distance = 8
+num_emerge_threads = 2
+
+# Persistence and logging
+player_transfer_distance = 0
+enable_rollback_recording = false
+debug_log_level = action

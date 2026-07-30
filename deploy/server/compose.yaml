@@ -1,0 +1,44 @@
+services:
+  vococraft:
+    image: vococraft-server:5.16.1
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: vococraft-server
+    restart: always
+    init: true
+    user: "30000:30000"
+    command:
+      - --config
+      - /etc/vococraft/minetest.conf
+      - --world
+      - /var/lib/minetest/world
+      - --gameid
+      - vococraft
+      - --logfile
+      - /var/lib/minetest/server.log
+    ports:
+      - "30000:30000/udp"
+    volumes:
+      - ${VOCOCRAFT_DATA_DIR:-/opt/vococraft-server/data}:/var/lib/minetest
+      - ${VOCOCRAFT_CONFIG_DIR:-/opt/vococraft-server/config}:/etc/vococraft:ro
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    stop_grace_period: 2m
+    healthcheck:
+      test: ["CMD-SHELL", "pidof luantiserver >/dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"

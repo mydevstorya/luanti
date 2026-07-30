@@ -22,13 +22,13 @@ RUN cd prometheus-cpp && \
 			-DCMAKE_BUILD_TYPE=Release \
 			-DENABLE_TESTING=0 \
 			-GNinja && \
-		cmake --build build && \
+		cmake --build build --parallel 2 && \
 		cmake --install build && \
 		cd /usr/src/ && \
 	cd libspatialindex && \
 		cmake -B build \
 			-DCMAKE_INSTALL_PREFIX=/usr/local && \
-		cmake --build build && \
+		cmake --build build --parallel 2 && \
 		cmake --install build && \
 		cd /usr/src/ && \
 	cd luajit && \
@@ -51,6 +51,7 @@ COPY po /usr/src/luanti/po
 COPY src /usr/src/luanti/src
 COPY irr /usr/src/luanti/irr
 COPY textures /usr/src/luanti/textures
+COPY games/vococraft /usr/src/luanti/games/vococraft
 
 WORKDIR /usr/src/luanti
 RUN cmake -B build \
@@ -61,7 +62,7 @@ RUN cmake -B build \
 		-DBUILD_UNITTESTS=FALSE -DBUILD_BENCHMARKS=FALSE \
 		-DBUILD_CLIENT=FALSE \
 		-GNinja && \
-	cmake --build build && \
+	cmake --build build --parallel 2 && \
 	cmake --install build
 
 FROM $DOCKER_IMAGE AS runtime
@@ -76,6 +77,7 @@ WORKDIR /var/lib/minetest
 COPY --from=builder /usr/local/share/luanti /usr/local/share/luanti
 COPY --from=builder /usr/local/bin/luantiserver /usr/local/bin/luantiserver
 COPY --from=builder /usr/local/share/doc/luanti/minetest.conf.example /etc/minetest/minetest.conf
+COPY --from=builder /usr/src/luanti/games/vococraft /usr/local/share/luanti/games/vococraft
 COPY --from=builder /usr/local/lib/libspatialindex* /usr/local/lib/
 COPY --from=builder /usr/local/lib/libluajit* /usr/local/lib/
 USER minetest:minetest
