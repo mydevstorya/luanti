@@ -71,6 +71,7 @@ typedef s32 SamplerLayer_t;
 enum VocoCraftRewardType {
 	VOCOCRAFT_REWARD_HEALTH = 1,
 	VOCOCRAFT_REWARD_FOOD = 2,
+	VOCOCRAFT_REWARD_CASE = 3,
 };
 
 enum VocoCraftOverlayAction {
@@ -102,6 +103,26 @@ static int getPlayerMaxHp(const LocalPlayer *player)
 	return player->getCAO() ?
 			player->getCAO()->getProperties().hp_max :
 			PLAYER_MAX_HP_DEFAULT;
+}
+
+static bool isVocoCraftSurvivalMode(const LocalPlayer *player)
+{
+	if (!player)
+		return false;
+
+	// The game mod publishes an invisible HUD sentinel whenever mcl_gamemode
+	// changes. Missing/unknown state fails closed, so rewards never leak into
+	// Creative while the player is joining or switching modes.
+	for (const HudElement *element : player->getHudElements()) {
+		if (!element)
+			continue;
+		if (element->name == "vococraft_survival_state" ||
+				element->text == "vococraft_survival_1" ||
+				element->text == "vococraft_survival_0")
+			return element->number == 1 ||
+					element->text == "vococraft_survival_1";
+	}
+	return false;
 }
 #endif
 
@@ -649,6 +670,7 @@ void Game::run()
 		const int reward_hp = reward_player ? static_cast<int>(reward_player->hp) : 0;
 		const int reward_max_hp = getPlayerMaxHp(reward_player);
 		const int reward_hunger = getVocoCraftHunger(reward_player);
+		const bool reward_survival = isVocoCraftSurvivalMode(reward_player);
 
 		const int overlay_action = porting::consumeGameplayOverlayAction();
 		if (overlay_action == VOCOCRAFT_OVERLAY_MENU) {
@@ -671,7 +693,9 @@ void Game::run()
 			const bool food_eligible = reward_request == VOCOCRAFT_REWARD_FOOD &&
 					reward_hunger >= 0 &&
 					reward_hunger < VOCOCRAFT_LOW_RESOURCE_THRESHOLD;
-			if (simple_singleplayer_mode && (health_eligible || food_eligible)) {
+			const bool case_eligible = reward_request == VOCOCRAFT_REWARD_CASE;
+			if (simple_singleplayer_mode && reward_survival &&
+					(health_eligible || food_eligible || case_eligible)) {
 				if (!isMenuActive())
 					m_game_formspec.showPauseMenu();
 				porting::showRewardedAd(reward_request);
@@ -705,13 +729,29 @@ void Game::run()
 			porting::notifyRewardRejected(-rewarded_ad_result);
 		}
 
+		const int case_prize_result = porting::consumeCaseRewardResult();
+		if (case_prize_result >= 0) {
+			if (!isMenuActive())
+				m_game_formspec.showPauseMenu();
+			if (simple_singleplayer_mode && reward_survival &&
+					case_prize_result <= 16) {
+				const std::wstring reward_command =
+						L"/__vococraft_case " +
+						std::to_wstring(case_prize_result);
+				client->sendChatMessage(reward_command);
+				porting::notifyCasePrizeGranted(case_prize_result);
+			} else {
+				porting::notifyCasePrizeRejected(case_prize_result);
+			}
+		}
+
 		const auto reward_overlay_now = std::chrono::steady_clock::now();
 		if (reward_overlay_now >= reward_overlay_next_update) {
 			const bool reward_gameplay_active =
 					reward_player && reward_hp > 0 && !isMenuActive() &&
 					(!g_touchcontrols || !g_touchcontrols->isOverflowMenuOpen());
 			porting::updateRewardOverlayState(reward_hp, reward_max_hp,
-					reward_hunger, simple_singleplayer_mode,
+					reward_hunger, simple_singleplayer_mode, reward_survival,
 					reward_gameplay_active);
 			reward_overlay_next_update =
 					reward_overlay_now + std::chrono::milliseconds(500);
@@ -734,7 +774,7 @@ void Game::run()
 
 #ifdef __ANDROID__
 	porting::updateRewardOverlayState(0, PLAYER_MAX_HP_DEFAULT, -1,
-			false, false);
+			false, false, false);
 	porting::setPlayingNowNotification(false);
 #endif
 

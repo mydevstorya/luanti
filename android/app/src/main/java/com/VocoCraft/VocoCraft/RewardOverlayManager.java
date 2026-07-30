@@ -38,6 +38,7 @@ public final class RewardOverlayManager {
 
 	public static final int REWARD_HEALTH = 1;
 	public static final int REWARD_FOOD = 2;
+	public static final int REWARD_CASE = 3;
 	public static final int ACTION_MENU = 10;
 	public static final int ACTION_INVENTORY = 11;
 
@@ -51,6 +52,7 @@ public final class RewardOverlayManager {
 	private static LinearLayout navigationColumn;
 	private static LinearLayout healthItem;
 	private static LinearLayout foodItem;
+	private static View caseItem;
 	private static AnimatorSet healthAnimator;
 	private static AnimatorSet foodAnimator;
 
@@ -58,6 +60,7 @@ public final class RewardOverlayManager {
 	private static int currentMaxHp = 20;
 	private static int currentHunger = -1;
 	private static boolean singleplayer;
+	private static boolean survivalMode;
 	private static boolean gameplayActive;
 	private static boolean healthImpressionSent;
 	private static boolean foodImpressionSent;
@@ -85,11 +88,13 @@ public final class RewardOverlayManager {
 	}
 
 	public static void updateState(int hp, int maxHp, int hunger,
-			boolean isSingleplayer, boolean isGameplayActive) {
+			boolean isSingleplayer, boolean isSurvivalMode,
+			boolean isGameplayActive) {
 		currentHp = hp;
 		currentMaxHp = Math.max(1, maxHp);
 		currentHunger = hunger;
 		singleplayer = isSingleplayer;
+		survivalMode = isSurvivalMode;
 		gameplayActive = isGameplayActive;
 
 		Activity host = activity;
@@ -106,10 +111,14 @@ public final class RewardOverlayManager {
 		}
 	}
 
-	public static void onRewardFlowFinished(int rewardType, boolean earned) {
-		rewardFlowInProgress = false;
+	public static int onRewardFlowFinished(int rewardType, boolean earned) {
 		trackEvent(rewardType, "reward", earned ? "earned" : "not_earned", null);
+		if (rewardType == REWARD_CASE && earned) {
+			return CaseRewardManager.preparePrize();
+		}
+		rewardFlowInProgress = false;
 		refreshVisibilityOnUiThread();
+		return -1;
 	}
 
 	public static void onNativeRewardGranted(int rewardType) {
@@ -128,6 +137,22 @@ public final class RewardOverlayManager {
 	public static void onNativeRewardRejected(int rewardType) {
 		rewardFlowInProgress = false;
 		trackEvent(rewardType, "reward", "rejected", "state_changed");
+		refreshVisibilityOnUiThread();
+	}
+
+	public static void onNativeCasePrizeGranted(int prizeIndex) {
+		Activity host = activity;
+		if (host != null) {
+			host.runOnUiThread(() -> CaseRewardManager.onPrizeGranted(prizeIndex));
+		}
+	}
+
+	public static void onNativeCasePrizeRejected(int prizeIndex) {
+		rewardFlowInProgress = false;
+		Activity host = activity;
+		if (host != null) {
+			host.runOnUiThread(() -> CaseRewardManager.onPrizeRejected(prizeIndex));
+		}
 		refreshVisibilityOnUiThread();
 	}
 
@@ -172,6 +197,15 @@ public final class RewardOverlayManager {
 
 		bonusContainer.addView(healthItem);
 		bonusContainer.addView(foodItem);
+		caseItem = CaseRewardManager.createButton(
+				activity,
+				root,
+				() -> handleRewardClick(REWARD_CASE),
+				() -> {
+					rewardFlowInProgress = false;
+					refreshVisibilityOnUiThread();
+				});
+		bonusContainer.addView(caseItem);
 
 		navigationColumn = new LinearLayout(activity);
 		navigationColumn.setOrientation(LinearLayout.VERTICAL);
@@ -350,15 +384,21 @@ public final class RewardOverlayManager {
 	}
 
 	private static void handleRewardClick(int rewardType) {
-		if (rewardFlowInProgress || !YandexAds.isRewardedReady() || !isInternetAvailable()) {
-			trackEvent(rewardType, "button", "unavailable", null);
+		boolean caseUnavailable = rewardType == REWARD_CASE
+				&& !CaseRewardManager.isReady();
+		if (rewardFlowInProgress || caseUnavailable
+				|| !YandexAds.isRewardedReady() || !isInternetAvailable()) {
+			String detail = rewardType == REWARD_CASE
+					? CaseRewardManager.getUnavailableReason() : null;
+			trackEvent(rewardType, "button", "unavailable", detail);
 			YandexAds.ensureRewardedLoaded();
 			refreshVisibility();
 			return;
 		}
 
 		rewardFlowInProgress = true;
-		trackEvent(rewardType, "button", "clicked", "amount_100");
+		trackEvent(rewardType, "button", "clicked",
+				rewardType == REWARD_CASE ? "case_open" : "amount_100");
 		if (container != null) {
 			container.setVisibility(View.GONE);
 		}
@@ -386,9 +426,9 @@ public final class RewardOverlayManager {
 		boolean lowFood = currentHunger >= 0
 				&& currentHunger < LOW_RESOURCE_THRESHOLD;
 		boolean showControls = gameplayActive && !rewardFlowInProgress;
-		boolean eligibleContext = singleplayer && showControls;
+		boolean eligibleContext = singleplayer && survivalMode && showControls;
 
-		if (eligibleContext && hasInternet && (lowHealth || lowFood)
+		if (eligibleContext && hasInternet
 				&& !YandexAds.isRewardedReady()) {
 			YandexAds.ensureRewardedLoaded();
 		}
@@ -399,7 +439,10 @@ public final class RewardOverlayManager {
 
 		setItemVisible(healthItem, healthAnimator, showHealth, REWARD_HEALTH);
 		setItemVisible(foodItem, foodAnimator, showFood, REWARD_FOOD);
-		bonusContainer.setVisibility(showHealth || showFood ? View.VISIBLE : View.GONE);
+		CaseRewardManager.updateContext(
+				eligibleContext, hasInternet, adReady, rewardFlowInProgress);
+		bonusContainer.setVisibility(
+				showHealth || showFood || eligibleContext ? View.VISIBLE : View.GONE);
 		navigationColumn.setVisibility(showControls ? View.VISIBLE : View.GONE);
 		container.setVisibility(showControls ? View.VISIBLE : View.GONE);
 	}
@@ -475,7 +518,8 @@ public final class RewardOverlayManager {
 	private static void trackEvent(int rewardType, String category,
 			String action, String detail) {
 		try {
-			String rewardName = rewardType == REWARD_HEALTH ? "health" : "food";
+			String rewardName = rewardType == REWARD_HEALTH ? "health"
+					: rewardType == REWARD_FOOD ? "food" : "case";
 
 			// The nested object produces a readable hierarchy in AppMetrica:
 			// rewarded_bonus -> health|food -> button|ad|reward -> action.
@@ -488,6 +532,7 @@ public final class RewardOverlayManager {
 
 			JSONObject context = new JSONObject();
 			context.put("singleplayer", singleplayer);
+			context.put("survival", survivalMode);
 			context.put("premium", YooKassaPay.hasPurchase());
 			context.put("hp", currentHp);
 			context.put("hp_max", currentMaxHp);
@@ -497,9 +542,11 @@ public final class RewardOverlayManager {
 			}
 
 			JSONObject params = new JSONObject();
-			params.put("rewarded_bonus", rewardNode);
+			String eventName = rewardType == REWARD_CASE
+					? "rewarded_case" : "rewarded_bonus";
+			params.put(eventName, rewardNode);
 			params.put("context", context);
-			Analytics.sendEventWithParams("rewarded_bonus", params.toString());
+			Analytics.sendEventWithParams(eventName, params.toString());
 			Log.d(TAG, rewardName + "/" + category + "/" + action);
 		} catch (Exception e) {
 			Log.e(TAG, "Failed to send analytics: " + e.getMessage());
@@ -541,6 +588,7 @@ public final class RewardOverlayManager {
 	}
 
 	private static void destroyInternal() {
+		CaseRewardManager.destroy();
 		if (healthAnimator != null) {
 			healthAnimator.cancel();
 		}
@@ -559,11 +607,13 @@ public final class RewardOverlayManager {
 		navigationColumn = null;
 		healthItem = null;
 		foodItem = null;
+		caseItem = null;
 		container = null;
 		root = null;
 		activity = null;
 		healthImpressionSent = false;
 		foodImpressionSent = false;
+		survivalMode = false;
 		rewardFlowInProgress = false;
 	}
 }

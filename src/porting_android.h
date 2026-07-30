@@ -148,10 +148,10 @@ bool isInterstitialReady();
 bool tryShowInterstitial();
 
 /**
- * Update optional rewarded health/food controls over the Android game view.
+ * Update optional rewarded controls over the Android game view.
  */
 void updateRewardOverlayState(int hp, int max_hp, int hunger,
-		bool singleplayer, bool gameplay_active);
+		bool singleplayer, bool survival_mode, bool gameplay_active);
 
 /**
  * Consume a native overlay navigation click.
@@ -160,7 +160,7 @@ void updateRewardOverlayState(int hp, int max_hp, int hunger,
 int consumeGameplayOverlayAction();
 
 /**
- * Consume a Java overlay click. 0 = none, 1 = health, 2 = food.
+ * Consume a Java overlay click. 0 = none, 1 = health, 2 = food, 3 = case.
  */
 int consumeRewardOverlayRequest();
 
@@ -169,9 +169,17 @@ int consumeRewardOverlayRequest();
  */
 int consumeRewardedAdResult();
 
+/**
+ * Consume a case prize selected after an earned rewarded ad.
+ * Returns -1 when there is no pending result, otherwise a zero-based index.
+ */
+int consumeCaseRewardResult();
+
 void showRewardedAd(int reward_type);
 void notifyRewardGranted(int reward_type);
 void notifyRewardRejected(int reward_type);
+void notifyCasePrizeGranted(int prize_index);
+void notifyCasePrizeRejected(int prize_index);
 
 /**
  * Show native purchase overlay dialog

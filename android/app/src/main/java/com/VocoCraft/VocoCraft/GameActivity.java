@@ -210,6 +210,7 @@ public class GameActivity extends SDLActivity {
 	private native void onGameplayOverlayActionNative(int action);
 	private native void onRewardOverlayClickedNative(int rewardType);
 	private native void onRewardedAdCompletedNative(int rewardType);
+	private native void onCaseRewardedAdCompletedNative(int prizeIndex);
 	private native void onRewardedAdFailedNative(int rewardType);
 	
 	// Called from RuStorePay when purchase completes - triggers UI refresh
@@ -570,12 +571,12 @@ public class GameActivity extends SDLActivity {
 	 * Called from the native game loop.
 	 */
 	public void updateRewardOverlayState(int hp, int maxHp, int hunger,
-			boolean singleplayer, boolean gameplayActive) {
+			boolean singleplayer, boolean survivalMode, boolean gameplayActive) {
 		if (mLayout != null) {
 			RewardOverlayManager.init(this, mLayout);
 		}
 		RewardOverlayManager.updateState(
-				hp, maxHp, hunger, singleplayer, gameplayActive);
+				hp, maxHp, hunger, singleplayer, survivalMode, gameplayActive);
 	}
 
 	/**
@@ -606,9 +607,15 @@ public class GameActivity extends SDLActivity {
 				new YandexAds.RewardedCallback() {
 					@Override
 					public void onRewardedClosed(boolean earned) {
-						RewardOverlayManager.onRewardFlowFinished(rewardType, earned);
+						int casePrize = RewardOverlayManager.onRewardFlowFinished(
+								rewardType, earned);
 						if (earned) {
-							onRewardedAdCompletedNative(rewardType);
+							if (rewardType == RewardOverlayManager.REWARD_CASE
+									&& casePrize >= 0) {
+								onCaseRewardedAdCompletedNative(casePrize);
+							} else {
+								onRewardedAdCompletedNative(rewardType);
+							}
 						} else {
 							onRewardedAdFailedNative(rewardType);
 						}
@@ -628,6 +635,14 @@ public class GameActivity extends SDLActivity {
 
 	public void notifyRewardRejected(int rewardType) {
 		RewardOverlayManager.onNativeRewardRejected(rewardType);
+	}
+
+	public void notifyCasePrizeGranted(int prizeIndex) {
+		RewardOverlayManager.onNativeCasePrizeGranted(prizeIndex);
+	}
+
+	public void notifyCasePrizeRejected(int prizeIndex) {
+		RewardOverlayManager.onNativeCasePrizeRejected(prizeIndex);
 	}
 	
 	@Override

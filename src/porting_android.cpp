@@ -32,6 +32,8 @@ extern int main(int argc, char *argv[]);
 
 static std::atomic<int> g_reward_overlay_request{0};
 static std::atomic<int> g_rewarded_ad_result{0};
+// Stored as prize index + 1 so index 0 remains distinguishable from "none".
+static std::atomic<int> g_case_reward_result{0};
 static std::atomic<int> g_gameplay_overlay_action{0};
 
 static void wakeNativeMainLoop()
@@ -81,6 +83,13 @@ extern "C" JNIEXPORT void JNICALL
 Java_com_VocoCraft_VocoCraft_GameActivity_onRewardedAdCompletedNative(
 		JNIEnv* env, jobject /* this */, jint reward_type) {
 	g_rewarded_ad_result.store(static_cast<int>(reward_type));
+	wakeNativeMainLoop();
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_VocoCraft_VocoCraft_GameActivity_onCaseRewardedAdCompletedNative(
+		JNIEnv* env, jobject /* this */, jint prize_index) {
+	g_case_reward_result.store(static_cast<int>(prize_index) + 1);
 	wakeNativeMainLoop();
 }
 
@@ -647,13 +656,13 @@ bool tryShowInterstitial()
 }
 
 void updateRewardOverlayState(int hp, int max_hp, int hunger,
-		bool singleplayer, bool gameplay_active)
+		bool singleplayer, bool survival_mode, bool gameplay_active)
 {
 	if (jnienv == nullptr || activity == nullptr || activityClass == nullptr)
 		return;
 
 	jmethodID method = jnienv->GetMethodID(
-			activityClass, "updateRewardOverlayState", "(IIIZZ)V");
+			activityClass, "updateRewardOverlayState", "(IIIZZZ)V");
 	if (jnienv->ExceptionCheck()) {
 		jnienv->ExceptionClear();
 		return;
@@ -664,6 +673,7 @@ void updateRewardOverlayState(int hp, int max_hp, int hunger,
 	jnienv->CallVoidMethod(activity, method, static_cast<jint>(hp),
 			static_cast<jint>(max_hp), static_cast<jint>(hunger),
 			static_cast<jboolean>(singleplayer),
+			static_cast<jboolean>(survival_mode),
 			static_cast<jboolean>(gameplay_active));
 	if (jnienv->ExceptionCheck())
 		jnienv->ExceptionClear();
@@ -682,6 +692,12 @@ int consumeGameplayOverlayAction()
 int consumeRewardedAdResult()
 {
 	return g_rewarded_ad_result.exchange(0);
+}
+
+int consumeCaseRewardResult()
+{
+	const int encoded = g_case_reward_result.exchange(0);
+	return encoded == 0 ? -1 : encoded - 1;
 }
 
 void showRewardedAd(int reward_type)
@@ -728,6 +744,16 @@ void notifyRewardGranted(int reward_type)
 void notifyRewardRejected(int reward_type)
 {
 	notifyRewardState("notifyRewardRejected", reward_type);
+}
+
+void notifyCasePrizeGranted(int prize_index)
+{
+	notifyRewardState("notifyCasePrizeGranted", prize_index);
+}
+
+void notifyCasePrizeRejected(int prize_index)
+{
+	notifyRewardState("notifyCasePrizeRejected", prize_index);
 }
 
 void showNativePurchaseDialog(const std::string &source)
