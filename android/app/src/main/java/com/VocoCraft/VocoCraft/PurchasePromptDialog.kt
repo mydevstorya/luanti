@@ -8,6 +8,8 @@
 
 package com.VocoCraft.VocoCraft
 
+import android.animation.AnimatorSet
+import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.app.Activity
 import android.app.Dialog
@@ -23,23 +25,25 @@ import android.os.Handler
 import android.os.Looper
 import android.text.Spannable
 import android.text.SpannableString
-import android.text.SpannableStringBuilder
-import android.text.style.AbsoluteSizeSpan
-import android.text.style.ForegroundColorSpan
 import android.text.style.StrikethroughSpan
-import android.text.style.StyleSpan
 import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.Window
 import android.view.animation.LinearInterpolator
+import android.view.animation.OvershootInterpolator
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.annotation.Keep
+import kotlin.math.min
+import kotlin.math.roundToInt
+import kotlin.random.Random
 
 /**
  * Premium purchase dialog with an attractive, polished design.
@@ -54,6 +58,10 @@ object PurchasePromptDialog {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var currentSource: String = "after_interstitial"
     private var countdownRunnable: Runnable? = null
+    private var shimmerAnimator: ValueAnimator? = null
+
+    private const val SKIN_WIDTH = 1870f
+    private const val SKIN_HEIGHT = 841f
 
     /**
      * Show purchase prompt dialog.
@@ -88,6 +96,7 @@ object PurchasePromptDialog {
         mainHandler.post {
             try {
                 stopCountdownTimer()
+                stopVisualAnimations()
                 currentDialog?.dismiss()
                 currentDialog = null
             } catch (e: Exception) {
@@ -101,8 +110,14 @@ object PurchasePromptDialog {
         countdownRunnable = null
     }
 
+    private fun stopVisualAnimations() {
+        shimmerAnimator?.cancel()
+        shimmerAnimator = null
+    }
+
     private fun showDialog(activity: Activity) {
         stopCountdownTimer()
+        stopVisualAnimations()
         currentDialog?.dismiss()
 
         val dialog = Dialog(activity)
@@ -111,31 +126,19 @@ object PurchasePromptDialog {
         dialog.setCancelable(false)
         dialog.setCanceledOnTouchOutside(false)
 
-        val contentView = buildDialogLayout(activity, dialog)
+        val contentView = buildDialogLayoutV2(activity, dialog)
         dialog.setContentView(contentView)
 
         dialog.window?.apply {
             setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-            val maxH = (activity.resources.displayMetrics.heightPixels * 0.95).toInt()
-            setLayout(
-                (activity.resources.displayMetrics.widthPixels * 0.92).toInt(),
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            )
-            decorView.post {
-                if (decorView.height > maxH) {
-                    setLayout(
-                        (activity.resources.displayMetrics.widthPixels * 0.92).toInt(),
-                        maxH
-                    )
-                }
-            }
+            decorView.setPadding(0, 0, 0, 0)
             setGravity(Gravity.CENTER)
-            // Dim behind the dialog for focus
-            setDimAmount(0.7f)
+            setDimAmount(0.82f)
         }
 
         dialog.setOnDismissListener {
             stopCountdownTimer()
+            stopVisualAnimations()
             currentDialog = null
             sendPurchaseWindowAnalytics(activity, "dismissed")
             Log.d(TAG, "Purchase prompt dismissed")
@@ -143,6 +146,10 @@ object PurchasePromptDialog {
 
         currentDialog = dialog
         dialog.show()
+        dialog.window?.setLayout(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        )
 
         sendPurchaseWindowAnalytics(activity, "shown")
 
@@ -153,6 +160,410 @@ object PurchasePromptDialog {
     //  Layout builder
     // ──────────────────────────────────────────────────────────────
 
+    private fun buildDialogLayoutV2(activity: Activity, dialog: Dialog): View {
+        val metrics = activity.resources.displayMetrics
+        val skinAspect = SKIN_WIDTH / SKIN_HEIGHT
+        val canvasWidth = min(
+            metrics.widthPixels,
+            (metrics.heightPixels * skinAspect).roundToInt()
+        )
+        val canvasHeight = (canvasWidth / skinAspect).roundToInt()
+        val scale = canvasWidth / SKIN_WIDTH
+        val isSpecialOffer = YooKassaPay.isSpecialOfferAvailable()
+
+        val root = FrameLayout(activity).apply {
+            setBackgroundColor(Color.TRANSPARENT)
+            isClickable = true
+            isFocusable = true
+        }
+
+        val stage = FrameLayout(activity).apply {
+            clipChildren = false
+            clipToPadding = false
+            pivotX = canvasWidth / 2f
+            pivotY = canvasHeight / 2f
+        }
+        root.addView(
+            stage,
+            FrameLayout.LayoutParams(canvasWidth, canvasHeight, Gravity.CENTER)
+        )
+
+        val skin = ImageView(activity).apply {
+            setImageResource(
+                if (isSpecialOffer) {
+                    R.drawable.vococraft_purchase_skin_v2
+                } else {
+                    R.drawable.vococraft_purchase_skin_regular_v2
+                }
+            )
+            scaleType = ImageView.ScaleType.FIT_XY
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        }
+        stage.addView(
+            skin,
+            FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        )
+
+        // The generated skin already contains the complete scene and controls.
+        // This lightweight layer makes the dust and portal atmosphere feel alive.
+        stage.addView(
+            MagicParticleView(activity, scale),
+            FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        )
+
+        fun params(x: Float, y: Float, width: Float, height: Float) =
+            FrameLayout.LayoutParams(
+                (width * scale).roundToInt(),
+                (height * scale).roundToInt()
+            ).apply {
+                leftMargin = (x * scale).roundToInt()
+                topMargin = (y * scale).roundToInt()
+            }
+
+        val animatedTexts = mutableListOf<TextView>()
+
+        fun addText(
+            value: String,
+            x: Float,
+            y: Float,
+            width: Float,
+            height: Float,
+            baseSizePx: Float,
+            color: Int,
+            bold: Boolean = false,
+            maxLines: Int = 1,
+            gradient: IntArray? = null,
+            shadowColor: Int = Color.TRANSPARENT,
+            shadowRadius: Float = 0f
+        ): TextView {
+            val view = if (gradient != null) {
+                GradientTextView(activity, gradient)
+            } else {
+                TextView(activity)
+            }.apply {
+                text = value
+                setTextColor(color)
+                setTextSize(TypedValue.COMPLEX_UNIT_PX, baseSizePx * scale)
+                gravity = Gravity.CENTER
+                includeFontPadding = false
+                setLines(maxLines)
+                this.maxLines = maxLines
+                if (bold) setTypeface(typeface, Typeface.BOLD)
+                if (shadowRadius > 0f) {
+                    setShadowLayer(shadowRadius * scale, 0f, 2f * scale, shadowColor)
+                }
+                letterSpacing = if (baseSizePx >= 35f) 0.015f else 0f
+                layoutParams = params(x, y, width, height)
+            }
+            stage.addView(view)
+            animatedTexts.add(view)
+            return view
+        }
+
+        val title = addText(
+            "VocoCraft — Полный доступ",
+            510f, 102f, 940f, 82f,
+            48f, Color.WHITE, bold = true,
+            gradient = intArrayOf(
+                Color.parseColor("#FFFFD76A"),
+                Color.parseColor("#FFFFFFFF"),
+                Color.parseColor("#FFBEBBFF")
+            ),
+            shadowColor = Color.parseColor("#99275EFF"),
+            shadowRadius = 8f
+        )
+        addText(
+            "Открой весь мир без ограничений",
+            676f, 181f, 760f, 50f,
+            27f, Color.parseColor("#FFD9DCEB")
+        )
+
+        val featureColor = Color.parseColor("#FFF5F7FF")
+        val featureShadow = Color.parseColor("#CC050814")
+        addText("На весь экран", 742f, 361f, 266f, 58f, 22f, featureColor,
+            bold = true, shadowColor = featureShadow, shadowRadius = 3f)
+        addText("Без рекламы", 1025f, 361f, 272f, 58f, 22f, featureColor,
+            bold = true, shadowColor = featureShadow, shadowRadius = 3f)
+        addText("1000+ модов и карт", 1314f, 355f, 270f, 68f, 21f, featureColor,
+            bold = true, maxLines = 2, shadowColor = featureShadow, shadowRadius = 3f)
+        addText("Игра без интернета", 742f, 552f, 266f, 66f, 21f, featureColor,
+            bold = true, maxLines = 2, shadowColor = featureShadow, shadowRadius = 3f)
+        addText("Без ограничений", 1025f, 552f, 272f, 66f, 21f, featureColor,
+            bold = true, maxLines = 2, shadowColor = featureShadow, shadowRadius = 3f)
+        addText("Все функции открыты", 1314f, 552f, 270f, 66f, 20f, featureColor,
+            bold = true, maxLines = 2, shadowColor = featureShadow, shadowRadius = 3f)
+
+        val offerLabel = if (isSpecialOffer) {
+            addText(
+                "Спецпредложение",
+                252f, 651f, 382f, 43f,
+                23f, Color.parseColor("#FFD7D3ED")
+            )
+        } else {
+            null
+        }
+        val countdownTextView = if (isSpecialOffer) {
+            addText(
+                "",
+                247f, 688f, 392f, 75f,
+                48f, Color.WHITE, bold = true,
+                gradient = intArrayOf(
+                    Color.parseColor("#FFF5C7FF"),
+                    Color.parseColor("#FFC06CFF"),
+                    Color.parseColor("#FF8E75FF")
+                ),
+                shadowColor = Color.parseColor("#AA721CFF"),
+                shadowRadius = 9f
+            )
+        } else {
+            null
+        }
+
+        val priceX = if (isSpecialOffer) 640f else 248f
+        val priceWidth = if (isSpecialOffer) 338f else 730f
+
+        addText(
+            "Навсегда за",
+            priceX + 6f, 650f, priceWidth - 12f, 44f,
+            23f, Color.parseColor("#FFFFD86B"), bold = true
+        )
+        val priceValue = addText(
+            getFormattedPrice(),
+            priceX, 686f, priceWidth, 82f,
+            58f, Color.WHITE, bold = true,
+            gradient = intArrayOf(
+                Color.parseColor("#FFFFF2A7"),
+                Color.parseColor("#FFFFC24F"),
+                Color.parseColor("#FFFF8A35")
+            ),
+            shadowColor = Color.parseColor("#CCFF9A1A"),
+            shadowRadius = 10f
+        )
+
+        val buyText = addText(
+            "Получить полный доступ",
+            994f, 656f, 638f, 110f,
+            38f, Color.WHITE, bold = true,
+            shadowColor = Color.parseColor("#CC3420A8"),
+            shadowRadius = 8f
+        )
+
+        // Independent glossy sweeps over the already rendered cards, price and CTA.
+        val shimmerViews = mutableListOf<ShimmerView>()
+        fun addShimmer(
+            x: Float,
+            y: Float,
+            width: Float,
+            height: Float,
+            alpha: Float
+        ) {
+            val shimmer = ShimmerView(activity, scale).apply {
+                this.alpha = alpha
+                isClickable = false
+                isFocusable = false
+            }
+            stage.addView(shimmer, params(x, y, width, height))
+            shimmerViews.add(shimmer)
+        }
+        addShimmer(738f, 238f, 274f, 186f, 0.18f)
+        addShimmer(1020f, 238f, 282f, 186f, 0.18f)
+        addShimmer(1310f, 238f, 276f, 186f, 0.18f)
+        addShimmer(738f, 435f, 274f, 185f, 0.18f)
+        addShimmer(1020f, 435f, 282f, 185f, 0.18f)
+        addShimmer(1310f, 435f, 276f, 185f, 0.18f)
+        addShimmer(
+            if (isSpecialOffer) 637f else 240f,
+            642f,
+            if (isSpecialOffer) 342f else 740f,
+            146f,
+            0.42f
+        )
+        addShimmer(984f, 642f, 660f, 146f, 0.62f)
+
+        shimmerAnimator?.cancel()
+        shimmerAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 3_400L
+            repeatCount = ValueAnimator.INFINITE
+            repeatMode = ValueAnimator.RESTART
+            interpolator = LinearInterpolator()
+            startDelay = 650L
+            addUpdateListener { animator ->
+                val fraction = animator.animatedValue as Float
+                shimmerViews.forEachIndexed { index, shimmer ->
+                    shimmer.shimmerOffset = (fraction + index * 0.13f) % 1f
+                    shimmer.invalidate()
+                }
+                val pricePulse = 0.96f + 0.04f *
+                    kotlin.math.sin(fraction * Math.PI * 2.0).toFloat()
+                priceValue.scaleX = pricePulse
+                priceValue.scaleY = pricePulse
+            }
+            start()
+        }
+
+        // Rare, short attention motion: calm most of the time, noticeable once per cycle.
+        if (offerLabel != null && countdownTextView != null) {
+            val attentionAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+                duration = 9_000L
+                repeatCount = ValueAnimator.INFINITE
+                interpolator = LinearInterpolator()
+                addUpdateListener { animator ->
+                    val fraction = animator.animatedFraction
+                    val active = if (fraction < 0.105f) fraction / 0.105f else 1f
+                    val envelope = if (fraction < 0.105f) 1f - active else 0f
+                    val wiggle = kotlin.math.sin(active * Math.PI * 8.0).toFloat() *
+                        6f * scale * envelope
+                    offerLabel.translationX = wiggle
+                    countdownTextView.translationX = wiggle
+                }
+            }
+            attentionAnimator.start()
+            stage.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+                override fun onViewAttachedToWindow(v: View) = Unit
+                override fun onViewDetachedFromWindow(v: View) {
+                    attentionAnimator.cancel()
+                }
+            })
+        }
+
+        var dismissing = false
+        fun dismissAnimated(after: (() -> Unit)? = null) {
+            if (dismissing) return
+            dismissing = true
+            stage.animate()
+                .alpha(0f)
+                .scaleX(0.965f)
+                .scaleY(0.965f)
+                .translationY(14f * scale)
+                .setDuration(190L)
+                .withEndAction {
+                    dialog.dismiss()
+                    after?.invoke()
+                }
+                .start()
+        }
+
+        fun addPressTarget(
+            x: Float,
+            y: Float,
+            width: Float,
+            height: Float,
+            radius: Float,
+            description: String,
+            onClick: () -> Unit
+        ) {
+            val hit = FrameLayout(activity).apply {
+                isClickable = true
+                isFocusable = true
+                contentDescription = description
+            }
+            val pressed = View(activity).apply {
+                alpha = 0f
+                background = GradientDrawable().apply {
+                    setColor(Color.parseColor("#38FFFFFF"))
+                    cornerRadius = radius * scale
+                }
+            }
+            hit.addView(
+                pressed,
+                FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
+            )
+            hit.setOnTouchListener { _, event ->
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> pressed.animate().alpha(1f).setDuration(70L).start()
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
+                        pressed.animate().alpha(0f).setDuration(150L).start()
+                }
+                false
+            }
+            hit.setOnClickListener { onClick() }
+            stage.addView(hit, params(x, y, width, height))
+        }
+
+        addPressTarget(
+            1646f, 34f, 104f, 92f, 22f,
+            "Закрыть окно покупки"
+        ) {
+            sendPurchaseWindowAnalytics(activity, "close_clicked")
+            dismissAnimated()
+        }
+        addPressTarget(
+            982f, 638f, 668f, 156f, 24f,
+            "Получить полный доступ"
+        ) {
+            Log.d(TAG, "Buy button clicked")
+            sendPurchaseWindowAnalytics(activity, "buy_clicked")
+            dismissAnimated {
+                startPurchase(activity)
+            }
+        }
+
+        if (isSpecialOffer) {
+            countdownTextView?.let { startCountdownTimer(it) }
+        }
+
+        // Entrance: cinematic scale/fade, then staggered native copy.
+        stage.alpha = 0f
+        stage.scaleX = 0.925f
+        stage.scaleY = 0.925f
+        stage.translationY = 24f * scale
+        animatedTexts.forEach {
+            it.alpha = 0f
+            it.translationY = 8f * scale
+        }
+        stage.post {
+            AnimatorSet().apply {
+                playTogether(
+                    ObjectAnimator.ofFloat(stage, View.ALPHA, 0f, 1f),
+                    ObjectAnimator.ofFloat(stage, View.SCALE_X, 0.925f, 1f),
+                    ObjectAnimator.ofFloat(stage, View.SCALE_Y, 0.925f, 1f),
+                    ObjectAnimator.ofFloat(stage, View.TRANSLATION_Y, 24f * scale, 0f)
+                )
+                duration = 560L
+                interpolator = OvershootInterpolator(0.68f)
+                start()
+            }
+            animatedTexts.forEachIndexed { index, textView ->
+                textView.animate()
+                    .alpha(1f)
+                    .translationY(0f)
+                    .setStartDelay(120L + index * 24L)
+                    .setDuration(330L)
+                    .start()
+            }
+            title.animate()
+                .scaleX(1.018f)
+                .scaleY(1.018f)
+                .setStartDelay(620L)
+                .setDuration(700L)
+                .withEndAction {
+                    title.animate().scaleX(1f).scaleY(1f).setDuration(500L).start()
+                }
+                .start()
+            buyText.animate()
+                .scaleX(1.025f)
+                .scaleY(1.025f)
+                .setStartDelay(1_050L)
+                .setDuration(420L)
+                .withEndAction {
+                    buyText.animate().scaleX(1f).scaleY(1f).setDuration(360L).start()
+                }
+                .start()
+        }
+
+        return root
+    }
+
+    @Suppress("unused")
     private fun buildDialogLayout(activity: Activity, dialog: Dialog): View {
         val d = activity.resources.displayMetrics.density
 
@@ -694,5 +1105,123 @@ private class ShimmerView(context: android.content.Context, private val density:
             0f, 0f, width.toFloat(), height.toFloat(),
             14 * density, 14 * density, shimmerPaint
         )
+    }
+}
+
+/**
+ * Native copy stays sharp at every resolution while inheriting the generated
+ * skin's gold-to-lavender and gold-to-orange material treatment.
+ */
+private class GradientTextView(
+    context: android.content.Context,
+    private val gradientColors: IntArray
+) : TextView(context) {
+    override fun onSizeChanged(width: Int, height: Int, oldWidth: Int, oldHeight: Int) {
+        super.onSizeChanged(width, height, oldWidth, oldHeight)
+        if (width <= 0) return
+        paint.shader = LinearGradient(
+            0f, 0f, width.toFloat(), 0f,
+            gradientColors, null, Shader.TileMode.CLAMP
+        )
+        invalidate()
+    }
+}
+
+/**
+ * Subtle animated dust and mineral motes. The effect is intentionally sparse:
+ * it adds depth to the generated cavern without reducing copy readability.
+ */
+private class MagicParticleView(
+    context: android.content.Context,
+    private val uiScale: Float
+) : View(context) {
+    private data class Particle(
+        val x: Float,
+        val y: Float,
+        val size: Float,
+        val speed: Float,
+        val phase: Float,
+        val drift: Float,
+        val color: Int,
+        val opacity: Float
+    )
+
+    private val particlePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val random = Random(0x564F434F)
+    private val colors = intArrayOf(
+        Color.parseColor("#FFFFC84A"),
+        Color.parseColor("#FF4DE8FF"),
+        Color.parseColor("#FF9A6CFF"),
+        Color.parseColor("#FFFFFFFF")
+    )
+    private val particles = List(28) {
+        Particle(
+            x = random.nextFloat(),
+            y = random.nextFloat(),
+            size = 1.4f + random.nextFloat() * 3.2f,
+            speed = 0.10f + random.nextFloat() * 0.24f,
+            phase = random.nextFloat(),
+            drift = (random.nextFloat() - 0.5f) * 0.035f,
+            color = colors[random.nextInt(colors.size)],
+            opacity = 0.20f + random.nextFloat() * 0.40f
+        )
+    }
+    private var progress = 0f
+    private val animator = ValueAnimator.ofFloat(0f, 1f).apply {
+        duration = 12_000L
+        repeatCount = ValueAnimator.INFINITE
+        repeatMode = ValueAnimator.RESTART
+        interpolator = LinearInterpolator()
+        addUpdateListener {
+            progress = it.animatedValue as Float
+            invalidate()
+        }
+    }
+
+    init {
+        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
+        isClickable = false
+        isFocusable = false
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        if (!animator.isStarted) animator.start()
+    }
+
+    override fun onDetachedFromWindow() {
+        animator.cancel()
+        super.onDetachedFromWindow()
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        if (width <= 0 || height <= 0) return
+
+        particles.forEach { particle ->
+            val cycle = (progress * particle.speed + particle.phase) % 1f
+            val x = (
+                particle.x + particle.drift *
+                    kotlin.math.sin((cycle + particle.phase) * Math.PI * 2.0).toFloat()
+                ) * width
+            val y = (particle.y - cycle + 1f) % 1f * height
+            val fade = kotlin.math.sin(cycle * Math.PI).toFloat().coerceAtLeast(0f)
+            particlePaint.color = particle.color
+            particlePaint.alpha = (255f * particle.opacity * fade).roundToInt()
+
+            val radius = particle.size * uiScale
+            canvas.save()
+            canvas.rotate(45f, x, y)
+            canvas.drawRoundRect(
+                x - radius,
+                y - radius,
+                x + radius,
+                y + radius,
+                radius * 0.22f,
+                radius * 0.22f,
+                particlePaint
+            )
+            canvas.restore()
+        }
     }
 }
