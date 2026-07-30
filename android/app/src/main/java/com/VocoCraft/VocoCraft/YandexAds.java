@@ -185,6 +185,12 @@ public class YandexAds {
                 @Override
                 public void onAdLoaded(InterstitialAd ad) {
                     try {
+                        if (YooKassaPay.hasPurchase()) {
+                            interstitialAd = null;
+                            isInterstitialLoading = false;
+                            Log.d(TAG, "Discarded loaded interstitial for purchased user");
+                            return;
+                        }
                         Log.i(TAG, "Interstitial ad loaded successfully");
                         interstitialAd = ad;
                         isInterstitialLoading = false;
@@ -240,7 +246,19 @@ public class YandexAds {
      * Check if interstitial ad is ready
      */
     public static boolean isInterstitialReady() {
-        return interstitialAd != null;
+        return !YooKassaPay.hasPurchase() && interstitialAd != null;
+    }
+
+    /**
+     * Remove every forced-ad surface immediately after a successful purchase.
+     * Rewarded ads intentionally remain available as optional gameplay bonuses.
+     */
+    public static void onPurchaseActivated(
+            Activity activity, ViewGroup gameLayout, View gameView) {
+        Log.i(TAG, "Purchase activated: removing forced ads");
+        cleanupInterstitial();
+        interstitialCallback = null;
+        hideBanner(activity, gameLayout, gameView);
     }
     
     /**

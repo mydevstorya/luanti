@@ -140,6 +140,7 @@ object PurchasePromptDialog {
             stopCountdownTimer()
             stopVisualAnimations()
             currentDialog = null
+            RewardOverlayManager.onPurchaseDialogDismissed()
             sendPurchaseWindowAnalytics(activity, "dismissed")
             Log.d(TAG, "Purchase prompt dismissed")
         }
@@ -288,8 +289,8 @@ object PurchasePromptDialog {
         val featureShadow = Color.parseColor("#CC050814")
         addText("На весь экран", 742f, 361f, 266f, 58f, 22f, featureColor,
             bold = true, shadowColor = featureShadow, shadowRadius = 3f)
-        addText("Без рекламы", 1025f, 361f, 272f, 58f, 22f, featureColor,
-            bold = true, shadowColor = featureShadow, shadowRadius = 3f)
+        addText("Без принудительной\nрекламы", 1025f, 354f, 272f, 72f, 18f, featureColor,
+            bold = true, maxLines = 2, shadowColor = featureShadow, shadowRadius = 3f)
         addText("1000+ модов и карт", 1314f, 355f, 270f, 68f, 21f, featureColor,
             bold = true, maxLines = 2, shadowColor = featureShadow, shadowRadius = 3f)
         addText("Игра без интернета", 742f, 552f, 266f, 66f, 21f, featureColor,
@@ -685,7 +686,7 @@ object PurchasePromptDialog {
 
         val tiles = listOf(
             Tile("📺", "Игра\nна весь экран", Color.parseColor("#FF5252")),
-            Tile("🔕", "Без\nрекламы", Color.parseColor("#FF9800")),
+            Tile("🔕", "Без принудительной\nрекламы", Color.parseColor("#FF9800")),
             Tile("🧩", "1000+\nмодов и карт", cyanAccent),
             Tile("📶", "Играй\nбез интернета", greenBright),
             Tile("🛡️", "Без\nограничений", Color.parseColor("#FFEB3B")),
@@ -1033,7 +1034,7 @@ object PurchasePromptDialog {
                 amount,
                 currency,
                 "VocoCraft Полная версия",
-                "Разблокировка всех функций без рекламы"
+                "Разблокировка всех функций без принудительной рекламы"
             )
             Log.d(TAG, "Purchase started from prompt (special=$isSpecial, amount=$amount)")
         } catch (e: Exception) {

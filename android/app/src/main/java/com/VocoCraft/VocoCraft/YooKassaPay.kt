@@ -1105,8 +1105,8 @@ class YooKassaPay private constructor(private val context: Context) {
             if (isPurchased) {
                 PurchasePromptDialog.dismiss()
                 InternetCheckService.dismissBlocker()
-                // Hide the banner ad — user paid, no more ads
-                (currentActivity as? GameActivity)?.hideBanner()
+                // Remove every forced ad and the in-game purchase CTA.
+                (currentActivity as? GameActivity)?.onPurchaseActivated()
                 (currentActivity as? GameActivity)?.nativeOnPurchaseComplete()
                     ?: Log.w(TAG, "Activity is not GameActivity")
             }

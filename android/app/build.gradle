@@ -10,6 +10,26 @@ if (propfile.exists())
 // Force BuildConfig regeneration when local.properties changes
 // (otherwise Gradle caches old ngrok URLs etc.)
 def localPropsInput = propfile.exists() ? propfile : null
+def secretsFile = file('src/main/assets/secrets.properties')
+
+tasks.register('validateReleaseAdConfiguration') {
+	inputs.file(secretsFile)
+	doLast {
+		if (!secretsFile.exists()) {
+			throw new GradleException(
+				'Release build requires android/app/src/main/assets/secrets.properties')
+		}
+
+		Properties secrets = new Properties()
+		secretsFile.withInputStream { secrets.load(it) }
+		def rewardedId = secrets.getProperty(
+			'yandex_rewarded_ad_unit_id_production', '').trim()
+		if (!(rewardedId ==~ /R-M-\d+-\d+/)) {
+			throw new GradleException(
+				'Release build requires a production yandex_rewarded_ad_unit_id_production')
+		}
+	}
+}
 
 android {
 	ndkVersion "$ndk_version"
@@ -122,10 +142,10 @@ task prepareAssets() {
 		}
 		
 		// copy secrets.properties if exists (not in git, contains API keys)
-		def secretsFile = file("src/main/assets/secrets.properties")
-		if (secretsFile.exists()) {
+		def packagedSecretsFile = file("src/main/assets/secrets.properties")
+		if (packagedSecretsFile.exists()) {
 			copy {
-				from secretsFile
+				from packagedSecretsFile
 				into assetsFolder
 			}
 		}
@@ -160,6 +180,9 @@ clean {
 
 // Force BuildConfig regeneration when local.properties changes
 afterEvaluate {
+	tasks.named('preReleaseBuild').configure {
+		dependsOn tasks.named('validateReleaseAdConfiguration')
+	}
 	tasks.matching { it.name.contains('generateBuildConfig') || it.name.contains('GenerateBuildConfig') }.configureEach {
 		if (localPropsInput != null) {
 			inputs.file(localPropsInput)
@@ -179,9 +202,10 @@ dependencies {
 	// Yandex Mobile Ads SDK
 	implementation 'com.yandex.android:mobileads:7.18.1'
 	// RuStore SDKs - BOM версия (pay commented out, replaced by YooKassa)
-	implementation(platform("ru.rustore.sdk:bom:2025.11.01"))
+	implementation(platform("ru.rustore.sdk:bom:2026.03.01"))
 	// implementation("ru.rustore.sdk:pay")
 	implementation("ru.rustore.sdk:review")
+	implementation("ru.rustore.sdk:appupdate")
 	
 	// YooKassa SDK for payments
 	implementation 'ru.yoomoney.sdk.kassa.payments:yookassa-android-sdk:8.3.0'

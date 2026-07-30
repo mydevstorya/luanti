@@ -11,11 +11,14 @@ import android.graphics.drawable.GradientDrawable;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowInsets;
 import android.view.animation.AccelerateDecelerateInterpolator;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -41,18 +44,26 @@ public final class RewardOverlayManager {
 	public static final int REWARD_CASE = 3;
 	public static final int ACTION_MENU = 10;
 	public static final int ACTION_INVENTORY = 11;
+	public static final int ACTION_PURCHASE = 12;
 
 	// Four hearts equal eight engine HP/food points.
 	private static final int LOW_RESOURCE_THRESHOLD = 8;
+	private static final long FULL_ACCESS_INITIAL_ATTENTION_MS = 9000L;
+	private static final long FULL_ACCESS_ATTENTION_INTERVAL_MS = 30000L;
+	private static final Handler UI_HANDLER = new Handler(Looper.getMainLooper());
 
 	private static Activity activity;
 	private static ViewGroup root;
 	private static LinearLayout container;
 	private static LinearLayout bonusContainer;
 	private static LinearLayout navigationColumn;
+	private static LinearLayout fullAccessItem;
+	private static View fullAccessGlow;
+	private static TextView fullAccessLabel;
 	private static LinearLayout healthItem;
 	private static LinearLayout foodItem;
 	private static View caseItem;
+	private static AnimatorSet fullAccessAnimator;
 	private static AnimatorSet healthAnimator;
 	private static AnimatorSet foodAnimator;
 
@@ -64,7 +75,24 @@ public final class RewardOverlayManager {
 	private static boolean gameplayActive;
 	private static boolean healthImpressionSent;
 	private static boolean foodImpressionSent;
+	private static boolean fullAccessImpressionSent;
 	private static boolean rewardFlowInProgress;
+	private static boolean purchaseFlowInProgress;
+
+	private static final Runnable FULL_ACCESS_ATTENTION_TICK = new Runnable() {
+		@Override
+		public void run() {
+			if (fullAccessItem != null
+					&& fullAccessItem.getVisibility() == View.VISIBLE
+					&& gameplayActive && !YooKassaPay.hasPurchase()) {
+				playFullAccessAttention();
+				trackFullAccessEvent("attention");
+			}
+			if (activity != null) {
+				UI_HANDLER.postDelayed(this, FULL_ACCESS_ATTENTION_INTERVAL_MS);
+			}
+		}
+	};
 
 	private RewardOverlayManager() {}
 
@@ -109,6 +137,16 @@ public final class RewardOverlayManager {
 		if (host != null && !host.isFinishing() && !host.isDestroyed()) {
 			host.runOnUiThread(RewardOverlayManager::refreshVisibility);
 		}
+	}
+
+	public static void onPurchaseStateChanged() {
+		purchaseFlowInProgress = false;
+		refreshVisibilityOnUiThread();
+	}
+
+	public static void onPurchaseDialogDismissed() {
+		purchaseFlowInProgress = false;
+		refreshVisibilityOnUiThread();
 	}
 
 	public static int onRewardFlowFinished(int rewardType, boolean earned) {
@@ -177,11 +215,12 @@ public final class RewardOverlayManager {
 		container.setClipToPadding(false);
 
 		bonusContainer = new LinearLayout(activity);
-		bonusContainer.setOrientation(LinearLayout.HORIZONTAL);
+		bonusContainer.setOrientation(LinearLayout.VERTICAL);
 		bonusContainer.setGravity(Gravity.TOP | Gravity.END);
 		bonusContainer.setClipChildren(false);
 		bonusContainer.setClipToPadding(false);
 
+		fullAccessItem = createFullAccessItem();
 		healthItem = createRewardItem(
 				REWARD_HEALTH,
 				R.drawable.vococraft_reward_heart,
@@ -195,8 +234,7 @@ public final class RewardOverlayManager {
 				Color.parseColor("#FF9F1C"),
 				Color.parseColor("#7A3513"));
 
-		bonusContainer.addView(healthItem);
-		bonusContainer.addView(foodItem);
+		bonusContainer.addView(fullAccessItem);
 		caseItem = CaseRewardManager.createButton(
 				activity,
 				root,
@@ -206,6 +244,8 @@ public final class RewardOverlayManager {
 					refreshVisibilityOnUiThread();
 				});
 		bonusContainer.addView(caseItem);
+		bonusContainer.addView(healthItem);
+		bonusContainer.addView(foodItem);
 
 		navigationColumn = new LinearLayout(activity);
 		navigationColumn.setOrientation(LinearLayout.VERTICAL);
@@ -254,7 +294,126 @@ public final class RewardOverlayManager {
 			params.rightMargin = right;
 			root.addView(container, params);
 		}
+		container.setOnApplyWindowInsetsListener((view, insets) -> {
+			applySafeAreaInsets(insets);
+			return insets;
+		});
+		container.requestApplyInsets();
 		container.setVisibility(View.GONE);
+		UI_HANDLER.removeCallbacks(FULL_ACCESS_ATTENTION_TICK);
+		UI_HANDLER.postDelayed(
+				FULL_ACCESS_ATTENTION_TICK, FULL_ACCESS_INITIAL_ATTENTION_MS);
+	}
+
+	@SuppressWarnings("deprecation")
+	private static void applySafeAreaInsets(WindowInsets insets) {
+		if (container == null || insets == null) {
+			return;
+		}
+		// In landscape, gesture/three-button navigation can occupy the right
+		// edge even while immersive mode visually hides it. Stable insets keep
+		// every overlay control inside the actually clickable display area.
+		int safeRight = Math.max(
+				insets.getSystemWindowInsetRight(),
+				insets.getStableInsetRight());
+		ViewGroup.LayoutParams rawParams = container.getLayoutParams();
+		if (rawParams instanceof ViewGroup.MarginLayoutParams) {
+			ViewGroup.MarginLayoutParams params =
+					(ViewGroup.MarginLayoutParams) rawParams;
+			int desiredRight = dp(8) + safeRight;
+			if (params.rightMargin != desiredRight) {
+				params.rightMargin = desiredRight;
+				container.setLayoutParams(params);
+			}
+		}
+	}
+
+	private static LinearLayout createFullAccessItem() {
+		LinearLayout item = new LinearLayout(activity);
+		item.setOrientation(LinearLayout.VERTICAL);
+		item.setGravity(Gravity.CENTER);
+		item.setPadding(dp(1), dp(2), dp(1), dp(3));
+		item.setLayoutParams(new LinearLayout.LayoutParams(
+				dp(92), ViewGroup.LayoutParams.WRAP_CONTENT));
+		item.setContentDescription("Купить полный доступ VocoCraft");
+		item.setClickable(true);
+		item.setFocusable(true);
+
+		FrameLayout glow = new FrameLayout(activity);
+		glow.setLayoutParams(new LinearLayout.LayoutParams(dp(72), dp(72)));
+		GradientDrawable glowBackground = new GradientDrawable(
+				GradientDrawable.Orientation.TL_BR,
+				new int[]{
+						Color.parseColor("#F2FFB52E"),
+						Color.parseColor("#F56C24D9"),
+						Color.parseColor("#F0097ACB")
+				});
+		glowBackground.setShape(GradientDrawable.OVAL);
+		glowBackground.setStroke(dp(2), Color.WHITE);
+		glow.setBackground(glowBackground);
+		glow.setElevation(dp(9));
+
+		FrameLayout inner = new FrameLayout(activity);
+		FrameLayout.LayoutParams innerParams = new FrameLayout.LayoutParams(
+				dp(64), dp(64), Gravity.CENTER);
+		GradientDrawable innerBackground = new GradientDrawable(
+				GradientDrawable.Orientation.TOP_BOTTOM,
+				new int[]{
+						Color.parseColor("#F21A2748"),
+						Color.parseColor("#F2080E20")
+				});
+		innerBackground.setShape(GradientDrawable.OVAL);
+		innerBackground.setStroke(dp(1), Color.parseColor("#FFFFC94D"));
+		inner.setBackground(innerBackground);
+		glow.addView(inner, innerParams);
+
+		ImageView icon = new ImageView(activity);
+		icon.setImageResource(R.drawable.vococraft_full_access);
+		icon.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+		FrameLayout.LayoutParams iconParams = new FrameLayout.LayoutParams(
+				dp(61), dp(61), Gravity.CENTER);
+		inner.addView(icon, iconParams);
+
+		TextView vipBadge = new TextView(activity);
+		vipBadge.setText("VIP");
+		vipBadge.setTextColor(Color.parseColor("#FF251000"));
+		vipBadge.setTextSize(TypedValue.COMPLEX_UNIT_SP, 8f);
+		vipBadge.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+		vipBadge.setGravity(Gravity.CENTER);
+		vipBadge.setPadding(dp(6), dp(1), dp(6), dp(1));
+		GradientDrawable badgeBackground = new GradientDrawable(
+				GradientDrawable.Orientation.LEFT_RIGHT,
+				new int[]{
+						Color.parseColor("#FFFFE98A"),
+						Color.parseColor("#FFFFA51F")
+				});
+		badgeBackground.setCornerRadius(dp(9));
+		badgeBackground.setStroke(dp(1), Color.WHITE);
+		vipBadge.setBackground(badgeBackground);
+		FrameLayout.LayoutParams badgeParams = new FrameLayout.LayoutParams(
+				ViewGroup.LayoutParams.WRAP_CONTENT, dp(17),
+				Gravity.TOP | Gravity.END);
+		badgeParams.topMargin = dp(1);
+		glow.addView(vipBadge, badgeParams);
+
+		TextView label = new TextView(activity);
+		label.setText("Полный доступ");
+		label.setTextColor(Color.WHITE);
+		label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9.5f);
+		label.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+		label.setGravity(Gravity.CENTER);
+		label.setSingleLine(true);
+		label.setShadowLayer(6f, 0f, 1f, Color.parseColor("#FFFFB52E"));
+		LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(
+				ViewGroup.LayoutParams.MATCH_PARENT, dp(22));
+		labelParams.topMargin = dp(1);
+
+		item.addView(glow);
+		item.addView(label, labelParams);
+		item.setOnClickListener(view -> handleFullAccessClick());
+		fullAccessGlow = glow;
+		fullAccessLabel = label;
+		return item;
 	}
 
 	private static LinearLayout createRewardItem(int rewardType, int iconRes,
@@ -383,6 +542,25 @@ public final class RewardOverlayManager {
 		}
 	}
 
+	private static void handleFullAccessClick() {
+		if (!gameplayActive || purchaseFlowInProgress
+				|| YooKassaPay.hasPurchase()) {
+			return;
+		}
+		purchaseFlowInProgress = true;
+		trackFullAccessEvent("clicked");
+		if (container != null) {
+			container.setVisibility(View.GONE);
+		}
+		if (activity instanceof GameActivity) {
+			// Native opens the real pause menu first and only then calls back
+			// into Java to show the purchase dialog. Keeping both operations
+			// on the game loop prevents a slow frame from leaving the world
+			// running behind the full-screen offer.
+			((GameActivity) activity).onGameplayOverlayAction(ACTION_PURCHASE);
+		}
+	}
+
 	private static void handleRewardClick(int rewardType) {
 		boolean caseUnavailable = rewardType == REWARD_CASE
 				&& !CaseRewardManager.isReady();
@@ -425,8 +603,10 @@ public final class RewardOverlayManager {
 				&& currentHp < currentMaxHp;
 		boolean lowFood = currentHunger >= 0
 				&& currentHunger < LOW_RESOURCE_THRESHOLD;
-		boolean showControls = gameplayActive && !rewardFlowInProgress;
+		boolean showControls = gameplayActive
+				&& !rewardFlowInProgress && !purchaseFlowInProgress;
 		boolean eligibleContext = singleplayer && survivalMode && showControls;
+		boolean showFullAccess = showControls && !YooKassaPay.hasPurchase();
 
 		if (eligibleContext && hasInternet
 				&& !YandexAds.isRewardedReady()) {
@@ -439,12 +619,54 @@ public final class RewardOverlayManager {
 
 		setItemVisible(healthItem, healthAnimator, showHealth, REWARD_HEALTH);
 		setItemVisible(foodItem, foodAnimator, showFood, REWARD_FOOD);
+		boolean fullAccessWasVisible =
+				fullAccessItem.getVisibility() == View.VISIBLE;
+		fullAccessItem.setVisibility(showFullAccess ? View.VISIBLE : View.GONE);
+		if (showFullAccess && !fullAccessWasVisible
+				&& !fullAccessImpressionSent) {
+			fullAccessImpressionSent = true;
+			trackFullAccessEvent("shown");
+		}
+		if (!showFullAccess && fullAccessAnimator != null) {
+			fullAccessAnimator.cancel();
+		}
 		CaseRewardManager.updateContext(
 				eligibleContext, hasInternet, adReady, rewardFlowInProgress);
 		bonusContainer.setVisibility(
-				showHealth || showFood || eligibleContext ? View.VISIBLE : View.GONE);
+				showFullAccess || showHealth || showFood || eligibleContext
+						? View.VISIBLE : View.GONE);
 		navigationColumn.setVisibility(showControls ? View.VISIBLE : View.GONE);
 		container.setVisibility(showControls ? View.VISIBLE : View.GONE);
+		updateAdaptiveOrientation();
+	}
+
+	private static void updateAdaptiveOrientation() {
+		if (bonusContainer == null || root == null || root.getHeight() <= 0) {
+			return;
+		}
+		int visibleItems = 0;
+		for (int index = 0; index < bonusContainer.getChildCount(); index++) {
+			if (bonusContainer.getChildAt(index).getVisibility() == View.VISIBLE) {
+				visibleItems++;
+			}
+		}
+		boolean useVertical = visibleItems <= 1
+				|| visibleItems * dp(94) + dp(16) <= root.getHeight();
+		int orientation = useVertical
+				? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL;
+		if (bonusContainer.getOrientation() != orientation) {
+			bonusContainer.setOrientation(orientation);
+		}
+		for (int index = 0; index < bonusContainer.getChildCount(); index++) {
+			View child = bonusContainer.getChildAt(index);
+			LinearLayout.LayoutParams params =
+					(LinearLayout.LayoutParams) child.getLayoutParams();
+			params.width = dp(92);
+			params.height = ViewGroup.LayoutParams.WRAP_CONTENT;
+			params.leftMargin = useVertical ? 0 : dp(2);
+			params.topMargin = useVertical ? dp(2) : 0;
+			child.setLayoutParams(params);
+		}
 	}
 
 	private static void setItemVisible(View item, AnimatorSet animator,
@@ -509,6 +731,57 @@ public final class RewardOverlayManager {
 		set.playTogether(bob, rotate, scaleX, scaleY);
 		set.setInterpolator(new AccelerateDecelerateInterpolator());
 		return set;
+	}
+
+	private static void playFullAccessAttention() {
+		if (fullAccessGlow == null
+				|| fullAccessAnimator != null && fullAccessAnimator.isRunning()) {
+			return;
+		}
+		ObjectAnimator rotate = ObjectAnimator.ofFloat(
+				fullAccessGlow, View.ROTATION,
+				0f, -5f, 5f, -3f, 3f, 0f);
+		ObjectAnimator scaleX = ObjectAnimator.ofFloat(
+				fullAccessGlow, View.SCALE_X,
+				1f, 1.10f, 0.98f, 1.06f, 1f);
+		ObjectAnimator scaleY = ObjectAnimator.ofFloat(
+				fullAccessGlow, View.SCALE_Y,
+				1f, 1.10f, 0.98f, 1.06f, 1f);
+		ObjectAnimator labelPulse = ObjectAnimator.ofFloat(
+				fullAccessLabel, View.ALPHA, 1f, 0.62f, 1f);
+		fullAccessAnimator = new AnimatorSet();
+		fullAccessAnimator.playTogether(rotate, scaleX, scaleY, labelPulse);
+		fullAccessAnimator.setDuration(920L);
+		fullAccessAnimator.setInterpolator(
+				new AccelerateDecelerateInterpolator());
+		fullAccessAnimator.start();
+	}
+
+	private static void trackFullAccessEvent(String action) {
+		try {
+			JSONObject actionNode = new JSONObject();
+			actionNode.put(action, 1);
+			JSONObject buttonNode = new JSONObject();
+			buttonNode.put("button", actionNode);
+			JSONObject eventNode = new JSONObject();
+			eventNode.put("full_access", buttonNode);
+
+			JSONObject context = new JSONObject();
+			context.put("premium", YooKassaPay.hasPurchase());
+			context.put("singleplayer", singleplayer);
+			context.put("survival", survivalMode);
+			context.put("source", "game_overlay");
+
+			JSONObject params = new JSONObject();
+			params.put("purchase_overlay", eventNode);
+			params.put("context", context);
+			Analytics.sendEventWithParams(
+					"purchase_overlay", params.toString());
+			Log.d(TAG, "full_access/button/" + action);
+		} catch (Exception e) {
+			Log.e(TAG, "Failed to send full access analytics: "
+					+ e.getMessage());
+		}
 	}
 
 	public static void trackAdEvent(int rewardType, String action, String detail) {
@@ -588,7 +861,11 @@ public final class RewardOverlayManager {
 	}
 
 	private static void destroyInternal() {
+		UI_HANDLER.removeCallbacks(FULL_ACCESS_ATTENTION_TICK);
 		CaseRewardManager.destroy();
+		if (fullAccessAnimator != null) {
+			fullAccessAnimator.cancel();
+		}
 		if (healthAnimator != null) {
 			healthAnimator.cancel();
 		}
@@ -601,10 +878,14 @@ public final class RewardOverlayManager {
 			} catch (Exception ignored) {
 			}
 		}
+		fullAccessAnimator = null;
 		healthAnimator = null;
 		foodAnimator = null;
 		bonusContainer = null;
 		navigationColumn = null;
+		fullAccessItem = null;
+		fullAccessGlow = null;
+		fullAccessLabel = null;
 		healthItem = null;
 		foodItem = null;
 		caseItem = null;
@@ -613,7 +894,9 @@ public final class RewardOverlayManager {
 		activity = null;
 		healthImpressionSent = false;
 		foodImpressionSent = false;
+		fullAccessImpressionSent = false;
 		survivalMode = false;
 		rewardFlowInProgress = false;
+		purchaseFlowInProgress = false;
 	}
 }

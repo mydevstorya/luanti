@@ -77,6 +77,7 @@ enum VocoCraftRewardType {
 enum VocoCraftOverlayAction {
 	VOCOCRAFT_OVERLAY_MENU = 10,
 	VOCOCRAFT_OVERLAY_INVENTORY = 11,
+	VOCOCRAFT_OVERLAY_PURCHASE = 12,
 };
 
 static constexpr int VOCOCRAFT_LOW_RESOURCE_THRESHOLD = 8;
@@ -682,6 +683,10 @@ void Game::run()
 					g_touchcontrols->toggleOverflowMenu();
 				m_game_formspec.showPlayerInventory(nullptr);
 			}
+		} else if (overlay_action == VOCOCRAFT_OVERLAY_PURCHASE) {
+			if (!isMenuActive())
+				m_game_formspec.showPauseMenu();
+			porting::showNativePurchaseDialog("game_overlay_full_access");
 		}
 
 		const int reward_request = porting::consumeRewardOverlayRequest();

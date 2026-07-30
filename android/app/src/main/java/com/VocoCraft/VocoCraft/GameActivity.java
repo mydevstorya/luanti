@@ -80,6 +80,11 @@ public class GameActivity extends SDLActivity {
 		
 		// Initialize RuStore Review
 		RuStoreReview.init(this);
+
+		// Initialize RuStore in-app updates. The actual availability check is
+		// performed from onResume so it also catches updates after returning
+		// to the app.
+		RuStoreAppUpdate.init(this);
 		
 		// Handle deeplink if activity started from payment app
 		if (savedInstanceState == null) {
@@ -102,7 +107,9 @@ public class GameActivity extends SDLActivity {
 		int launchCount = YooKassaPay.getLaunchCount();
 		if (launchCount > 2 && !YooKassaPay.hasPurchase()) {
 			new Handler(Looper.getMainLooper()).postDelayed(() -> {
-				if (!isFinishing() && !isDestroyed() && !YooKassaPay.hasPurchase()) {
+				if (!isFinishing() && !isDestroyed()
+						&& !YooKassaPay.hasPurchase()
+						&& !RuStoreAppUpdate.isUpdateFlowActive()) {
 					Log.d(TAG, "Auto-showing purchase dialog (launch #" + launchCount + ")");
 					PurchasePromptDialog.show(this, "auto_launch");
 				}
@@ -112,7 +119,8 @@ public class GameActivity extends SDLActivity {
 		// Show RuStore review dialog for users who already purchased (after 3+ launches)
 		if (launchCount > 2 && YooKassaPay.hasPurchase()) {
 			new Handler(Looper.getMainLooper()).postDelayed(() -> {
-				if (!isFinishing() && !isDestroyed()) {
+				if (!isFinishing() && !isDestroyed()
+						&& !RuStoreAppUpdate.isUpdateFlowActive()) {
 					Log.d(TAG, "Trying to show RuStore review (launch #" + launchCount + ")");
 					RuStoreReview.tryShowReview();
 				}
@@ -134,6 +142,7 @@ public class GameActivity extends SDLActivity {
 		// This triggers UI refresh in Lua to detect purchase completion
 		Log.d(TAG, "onResume - notifying native for UI refresh");
 		nativeOnActivityResumed();
+		RuStoreAppUpdate.onResume(this);
 		
 		// Resume internet connectivity checks
 		InternetCheckService.start();
@@ -511,6 +520,17 @@ public class GameActivity extends SDLActivity {
 			YandexAds.hideBanner(this, mLayout, mSurface);
 		}
 	}
+
+	/**
+	 * Apply the paid entitlement immediately to all in-game Android UI.
+	 */
+	public void onPurchaseActivated() {
+		Log.i(TAG, "Applying purchased state to in-game UI");
+		if (mLayout != null && mSurface != null) {
+			YandexAds.onPurchaseActivated(this, mLayout, mSurface);
+		}
+		RewardOverlayManager.onPurchaseStateChanged();
+	}
 	
 	/**
 	 * Check if banner is currently visible.
@@ -660,6 +680,12 @@ public class GameActivity extends SDLActivity {
 			RewardOverlayManager.destroy();
 		} catch (Exception e) {
 			Log.e(TAG, "Error destroying RewardOverlayManager: " + e.getMessage());
+		}
+
+		try {
+			RuStoreAppUpdate.destroy();
+		} catch (Exception e) {
+			Log.e(TAG, "Error destroying RuStoreAppUpdate: " + e.getMessage());
 		}
 		
 		// Dismiss purchase prompt dialog if showing
