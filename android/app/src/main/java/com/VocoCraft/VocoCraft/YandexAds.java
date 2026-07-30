@@ -31,6 +31,11 @@ import com.yandex.mobile.ads.interstitial.InterstitialAd;
 import com.yandex.mobile.ads.interstitial.InterstitialAdEventListener;
 import com.yandex.mobile.ads.interstitial.InterstitialAdLoadListener;
 import com.yandex.mobile.ads.interstitial.InterstitialAdLoader;
+import com.yandex.mobile.ads.rewarded.Reward;
+import com.yandex.mobile.ads.rewarded.RewardedAd;
+import com.yandex.mobile.ads.rewarded.RewardedAdEventListener;
+import com.yandex.mobile.ads.rewarded.RewardedAdLoadListener;
+import com.yandex.mobile.ads.rewarded.RewardedAdLoader;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -38,7 +43,7 @@ import java.util.Properties;
 
 /**
  * Yandex Mobile Ads manager class.
- * Handles banner and interstitial ads.
+ * Handles banner, interstitial and opt-in rewarded ads.
  */
 public class YandexAds {
     private static final String TAG = "YandexAds";
@@ -48,6 +53,7 @@ public class YandexAds {
     private static boolean initialized = false;
     private static String bannerAdUnitId = "demo-banner-yandex";
     private static String interstitialAdUnitId = "demo-interstitial-yandex";
+    private static String rewardedAdUnitId = "demo-rewarded-yandex";
     
     // Banner
     private static BannerAdView bannerAdView = null;
@@ -69,6 +75,18 @@ public class YandexAds {
     private static InterstitialAd interstitialAd = null;
     private static boolean isInterstitialLoading = false;
     private static InterstitialCallback interstitialCallback = null;
+
+    // Rewarded (loaded for both free and Premium users)
+    private static RewardedAdLoader rewardedAdLoader = null;
+    private static RewardedAd rewardedAd = null;
+    private static RewardedAd activeRewardedAd = null;
+    private static boolean isRewardedLoading = false;
+    private static boolean isRewardedShowing = false;
+    private static RewardedCallback rewardedCallback = null;
+    private static int activeRewardType = 0;
+    private static boolean activeRewardEarned = false;
+    private static android.os.Handler rewardedRetryHandler = null;
+    private static Runnable rewardedRetryRunnable = null;
     
     /**
      * Callback interface for interstitial events
@@ -76,6 +94,11 @@ public class YandexAds {
     public interface InterstitialCallback {
         void onInterstitialDismissed();
         void onInterstitialFailed();
+    }
+
+    public interface RewardedCallback {
+        void onRewardedClosed(boolean earned);
+        void onRewardedFailed();
     }
     
     /**
@@ -86,7 +109,8 @@ public class YandexAds {
             Log.d(TAG, "Already initialized");
             return;
         }
-        
+
+        currentActivity = activity;
         Log.d(TAG, "Initializing Yandex Mobile Ads...");
         
         // Load ad unit IDs from secrets.properties
@@ -99,9 +123,11 @@ public class YandexAds {
             
             // Initialize interstitial loader
             initInterstitialLoader(activity);
-            
+            initRewardedLoader(activity);
+
             // Preload first interstitial
             loadInterstitial();
+            loadRewarded();
         });
     }
     
@@ -122,6 +148,7 @@ public class YandexAds {
             
             String bannerId = properties.getProperty("yandex_banner_ad_unit_id" + suffix);
             String interstitialId = properties.getProperty("yandex_interstitial_ad_unit_id" + suffix);
+            String rewardedId = properties.getProperty("yandex_rewarded_ad_unit_id" + suffix);
             
             if (bannerId != null && !bannerId.isEmpty() && !bannerId.startsWith("R-M-XXXX")) {
                 bannerAdUnitId = bannerId;
@@ -135,6 +162,13 @@ public class YandexAds {
                 Log.d(TAG, "Loaded interstitial ad unit ID: " + interstitialAdUnitId);
             } else {
                 Log.w(TAG, "Using demo interstitial ad unit ID (production ID not configured)");
+            }
+
+            if (rewardedId != null && !rewardedId.isEmpty() && !rewardedId.startsWith("R-M-XXXX")) {
+                rewardedAdUnitId = rewardedId;
+                Log.d(TAG, "Loaded rewarded ad unit ID");
+            } else {
+                Log.w(TAG, "Using demo rewarded ad unit ID (production ID not configured)");
             }
         } catch (IOException e) {
             Log.w(TAG, "secrets.properties not found, using demo ad unit IDs");
@@ -329,6 +363,208 @@ public class YandexAds {
             }
             interstitialAd = null;
         }
+    }
+
+    private static void initRewardedLoader(Activity activity) {
+        try {
+            rewardedAdLoader = new RewardedAdLoader(activity);
+            rewardedAdLoader.setAdLoadListener(new RewardedAdLoadListener() {
+                @Override
+                public void onAdLoaded(RewardedAd ad) {
+                    rewardedAd = ad;
+                    isRewardedLoading = false;
+                    cancelRewardedRetry();
+                    Analytics.sendAdEvent(activity, "rewarded", "loaded", rewardedAdUnitId);
+                    RewardOverlayManager.onAdAvailabilityChanged();
+                    Log.i(TAG, "Rewarded ad loaded successfully");
+                }
+
+                @Override
+                public void onAdFailedToLoad(AdRequestError error) {
+                    rewardedAd = null;
+                    isRewardedLoading = false;
+                    Analytics.sendAdEvent(activity, "rewarded", "failed",
+                            rewardedAdUnitId + "|" + error.getCode() + "|" + error.getDescription());
+                    RewardOverlayManager.onAdAvailabilityChanged();
+                    scheduleRewardedRetry();
+                    Log.e(TAG, "Rewarded ad failed to load: " + error.getDescription());
+                }
+            });
+        } catch (Exception e) {
+            rewardedAdLoader = null;
+            isRewardedLoading = false;
+            Log.e(TAG, "Error initializing rewarded loader: " + e.getMessage());
+        }
+    }
+
+    private static void loadRewarded() {
+        if (!initialized || rewardedAdLoader == null || rewardedAd != null
+                || isRewardedLoading || isRewardedShowing) {
+            return;
+        }
+        try {
+            isRewardedLoading = true;
+            Analytics.sendAdEvent(currentActivity, "rewarded", "request", rewardedAdUnitId);
+            AdRequestConfiguration config =
+                    new AdRequestConfiguration.Builder(rewardedAdUnitId).build();
+            rewardedAdLoader.loadAd(config);
+        } catch (Exception e) {
+            isRewardedLoading = false;
+            scheduleRewardedRetry();
+            Log.e(TAG, "Error loading rewarded ad: " + e.getMessage());
+        }
+    }
+
+    public static void ensureRewardedLoaded() {
+        Activity host = currentActivity;
+        if (host == null || host.isFinishing() || host.isDestroyed()) {
+            return;
+        }
+        host.runOnUiThread(YandexAds::loadRewarded);
+    }
+
+    public static boolean isRewardedReady() {
+        return rewardedAd != null && !isRewardedShowing;
+    }
+
+    /**
+     * Rewarded ads are opt-in bonuses and therefore remain available to
+     * Premium users. The reward is reported only from onRewarded().
+     */
+    public static boolean tryShowRewarded(Activity activity, int rewardType,
+            RewardedCallback callback) {
+        if (activity == null || activity.isFinishing() || activity.isDestroyed()) {
+            if (callback != null) {
+                callback.onRewardedFailed();
+            }
+            return false;
+        }
+        if (rewardedAd == null) {
+            Analytics.sendAdEvent(activity, "rewarded", "not_ready", rewardedAdUnitId);
+            loadRewarded();
+            if (callback != null) {
+                callback.onRewardedFailed();
+            }
+            return false;
+        }
+
+        // A rewarded object is single-use. Move it out of the ready slot before
+        // showing so every bonus button disappears immediately and cannot reuse
+        // the same video while a replacement is still loading.
+        activeRewardedAd = rewardedAd;
+        rewardedAd = null;
+        isRewardedShowing = true;
+        RewardOverlayManager.onAdAvailabilityChanged();
+
+        rewardedCallback = callback;
+        activeRewardType = rewardType;
+        activeRewardEarned = false;
+        RewardOverlayManager.trackAdEvent(rewardType, "request", null);
+        Analytics.sendAdEvent(activity, "rewarded", "show_request", rewardedAdUnitId);
+
+        activeRewardedAd.setAdEventListener(new RewardedAdEventListener() {
+            @Override
+            public void onAdShown() {
+                Analytics.sendAdEvent(activity, "rewarded", "shown", rewardedAdUnitId);
+                RewardOverlayManager.trackAdEvent(activeRewardType, "shown", null);
+            }
+
+            @Override
+            public void onAdFailedToShow(AdError error) {
+                int failedType = activeRewardType;
+                Analytics.sendAdEvent(activity, "rewarded", "failed_to_show",
+                        rewardedAdUnitId + "|show|" + error.getDescription());
+                RewardOverlayManager.trackAdEvent(
+                        failedType, "failed_to_show", error.getDescription());
+                RewardedCallback cb = rewardedCallback;
+                cleanupRewarded();
+                loadRewarded();
+                if (cb != null) {
+                    cb.onRewardedFailed();
+                }
+            }
+
+            @Override
+            public void onAdDismissed() {
+                int dismissedType = activeRewardType;
+                boolean earned = activeRewardEarned;
+                Analytics.sendAdEvent(activity, "rewarded", "dismissed", rewardedAdUnitId);
+                RewardOverlayManager.trackAdEvent(
+                        dismissedType, earned ? "dismissed_earned" : "dismissed_early", null);
+                RewardedCallback cb = rewardedCallback;
+                cleanupRewarded();
+                loadRewarded();
+                if (cb != null) {
+                    cb.onRewardedClosed(earned);
+                }
+            }
+
+            @Override
+            public void onAdClicked() {
+                Analytics.sendAdEvent(activity, "rewarded", "clicked", rewardedAdUnitId);
+                RewardOverlayManager.trackAdEvent(activeRewardType, "clicked", null);
+            }
+
+            @Override
+            public void onAdImpression(ImpressionData impressionData) {
+                Analytics.sendAdEvent(activity, "rewarded", "impression", rewardedAdUnitId);
+                RewardOverlayManager.trackAdEvent(activeRewardType, "impression", null);
+            }
+
+            @Override
+            public void onRewarded(Reward reward) {
+                activeRewardEarned = true;
+                Analytics.sendAdEvent(activity, "rewarded", "rewarded", rewardedAdUnitId);
+                RewardOverlayManager.trackAdEvent(
+                        activeRewardType, "rewarded",
+                        reward.getType() + "_" + reward.getAmount());
+            }
+        });
+
+        activeRewardedAd.show(activity);
+        return true;
+    }
+
+    private static void cleanupRewarded() {
+        if (activeRewardedAd != null) {
+            try {
+                activeRewardedAd.setAdEventListener(null);
+            } catch (Exception e) {
+                Log.e(TAG, "Error clearing rewarded listener: " + e.getMessage());
+            }
+        }
+        activeRewardedAd = null;
+        isRewardedShowing = false;
+        rewardedCallback = null;
+        activeRewardType = 0;
+        activeRewardEarned = false;
+        isRewardedLoading = false;
+        RewardOverlayManager.onAdAvailabilityChanged();
+    }
+
+    private static void scheduleRewardedRetry() {
+        Activity host = currentActivity;
+        if (!initialized || host == null || host.isFinishing() || host.isDestroyed()) {
+            return;
+        }
+        if (rewardedRetryHandler == null) {
+            rewardedRetryHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+        }
+        if (rewardedRetryRunnable != null) {
+            rewardedRetryHandler.removeCallbacks(rewardedRetryRunnable);
+        }
+        rewardedRetryRunnable = () -> {
+            rewardedRetryRunnable = null;
+            loadRewarded();
+        };
+        rewardedRetryHandler.postDelayed(rewardedRetryRunnable, 30000);
+    }
+
+    private static void cancelRewardedRetry() {
+        if (rewardedRetryHandler != null && rewardedRetryRunnable != null) {
+            rewardedRetryHandler.removeCallbacks(rewardedRetryRunnable);
+        }
+        rewardedRetryRunnable = null;
     }
     
     /**
@@ -721,6 +957,13 @@ public class YandexAds {
         
         // Clear interstitial callback to prevent calls after destroy
         interstitialCallback = null;
+
+        cancelRewardedRetry();
+        if (rewardedRetryHandler != null) {
+            rewardedRetryHandler.removeCallbacksAndMessages(null);
+            rewardedRetryHandler = null;
+        }
+        rewardedCallback = null;
         
         // Cleanup interstitial
         if (interstitialAd != null) {
@@ -739,6 +982,31 @@ public class YandexAds {
                 Log.e(TAG, "Error clearing interstitial loader listener: " + e.getMessage());
             }
             interstitialAdLoader = null;
+        }
+
+        if (rewardedAd != null) {
+            try {
+                rewardedAd.setAdEventListener(null);
+            } catch (Exception e) {
+                Log.e(TAG, "Error clearing rewarded listener: " + e.getMessage());
+            }
+            rewardedAd = null;
+        }
+        if (activeRewardedAd != null) {
+            try {
+                activeRewardedAd.setAdEventListener(null);
+            } catch (Exception e) {
+                Log.e(TAG, "Error clearing active rewarded listener: " + e.getMessage());
+            }
+            activeRewardedAd = null;
+        }
+        if (rewardedAdLoader != null) {
+            try {
+                rewardedAdLoader.setAdLoadListener(null);
+            } catch (Exception e) {
+                Log.e(TAG, "Error clearing rewarded loader listener: " + e.getMessage());
+            }
+            rewardedAdLoader = null;
         }
         
         // Cleanup banner
@@ -772,6 +1040,10 @@ public class YandexAds {
         bannerHeight = 0;
         bannerRetryCount = 0;
         isInterstitialLoading = false;
+        isRewardedLoading = false;
+        isRewardedShowing = false;
+        activeRewardType = 0;
+        activeRewardEarned = false;
         initialized = false;
         
         Log.d(TAG, "YandexAds resources destroyed");

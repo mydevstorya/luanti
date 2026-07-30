@@ -148,28 +148,36 @@ bool isInterstitialReady();
 bool tryShowInterstitial();
 
 /**
+ * Update optional rewarded health/food controls over the Android game view.
+ */
+void updateRewardOverlayState(int hp, int max_hp, int hunger,
+		bool singleplayer, bool gameplay_active);
+
+/**
+ * Consume a native overlay navigation click.
+ * 0 = none, 10 = touch overflow menu, 11 = player inventory.
+ */
+int consumeGameplayOverlayAction();
+
+/**
+ * Consume a Java overlay click. 0 = none, 1 = health, 2 = food.
+ */
+int consumeRewardOverlayRequest();
+
+/**
+ * Consume rewarded-ad result. Positive = earned, negative = failed/cancelled.
+ */
+int consumeRewardedAdResult();
+
+void showRewardedAd(int reward_type);
+void notifyRewardGranted(int reward_type);
+void notifyRewardRejected(int reward_type);
+
+/**
  * Show native purchase overlay dialog
  * @param source Analytics source tag (e.g. "main_menu", "mod_install")
  */
 void showNativePurchaseDialog(const std::string &source);
-
-/**
- * Show unclosable native purchase dialog (trial expired).
- * No close button, no "not now" — user must purchase to continue.
- */
-void showUnclosablePurchaseDialog();
-
-// ==================== Trial Timer ====================
-
-/**
- * Get trial elapsed seconds from Android SharedPreferences backup
- */
-int getTrialElapsedSeconds();
-
-/**
- * Save trial elapsed seconds to Android SharedPreferences backup
- */
-void saveTrialElapsedSeconds(int seconds);
 
 // ==================== RuStore Pay SDK (commented out - replaced by YooKassa) ====================
 /*

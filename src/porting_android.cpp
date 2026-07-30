@@ -30,6 +30,20 @@
 
 extern int main(int argc, char *argv[]);
 
+static std::atomic<int> g_reward_overlay_request{0};
+static std::atomic<int> g_rewarded_ad_result{0};
+static std::atomic<int> g_gameplay_overlay_action{0};
+
+static void wakeNativeMainLoop()
+{
+	SDL_Event event;
+	event.type = SDL_USEREVENT;
+	event.user.code = 0;
+	event.user.data1 = nullptr;
+	event.user.data2 = nullptr;
+	SDL_PushEvent(&event);
+}
+
 extern "C" JNIEXPORT void JNICALL
 Java_com_VocoCraft_VocoCraft_GameActivity_saveSettings(JNIEnv* env, jobject /* this */) {
 	if (!g_settings_path.empty())
@@ -47,6 +61,34 @@ Java_com_VocoCraft_VocoCraft_GameActivity_onInterstitialDismissedNative(JNIEnv* 
 extern "C" JNIEXPORT void JNICALL
 Java_com_VocoCraft_VocoCraft_GameActivity_onInterstitialFailedNative(JNIEnv* env, jobject /* this */) {
 	infostream << "[YandexAds] Interstitial failed (native callback)" << std::endl;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_VocoCraft_VocoCraft_GameActivity_onRewardOverlayClickedNative(
+		JNIEnv* env, jobject /* this */, jint reward_type) {
+	g_reward_overlay_request.store(static_cast<int>(reward_type));
+	wakeNativeMainLoop();
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_VocoCraft_VocoCraft_GameActivity_onGameplayOverlayActionNative(
+		JNIEnv* env, jobject /* this */, jint action) {
+	g_gameplay_overlay_action.store(static_cast<int>(action));
+	wakeNativeMainLoop();
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_VocoCraft_VocoCraft_GameActivity_onRewardedAdCompletedNative(
+		JNIEnv* env, jobject /* this */, jint reward_type) {
+	g_rewarded_ad_result.store(static_cast<int>(reward_type));
+	wakeNativeMainLoop();
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_VocoCraft_VocoCraft_GameActivity_onRewardedAdFailedNative(
+		JNIEnv* env, jobject /* this */, jint reward_type) {
+	g_rewarded_ad_result.store(-static_cast<int>(reward_type));
+	wakeNativeMainLoop();
 }
 
 // Flag to indicate activity was resumed (e.g. after returning from RuStore payment)
@@ -67,15 +109,10 @@ extern "C" JNIEXPORT void JNICALL
 Java_com_VocoCraft_VocoCraft_GameActivity_nativeOnPurchaseComplete(JNIEnv* env, jobject /* this */) {
 	infostream << "[YooKassa] Purchase complete (native callback) - triggering UI refresh" << std::endl;
 	g_purchase_complete_flag.store(true);
-	
+
 	// Push a dummy SDL event to wake up the main loop immediately
 	// This ensures the flag check happens without waiting for next frame
-	SDL_Event event;
-	event.type = SDL_USEREVENT;
-	event.user.code = 0;
-	event.user.data1 = nullptr;
-	event.user.data2 = nullptr;
-	SDL_PushEvent(&event);
+	wakeNativeMainLoop();
 	infostream << "[YooKassa] SDL event pushed to wake main loop" << std::endl;
 }
 
@@ -609,13 +646,97 @@ bool tryShowInterstitial()
 	return result;
 }
 
+void updateRewardOverlayState(int hp, int max_hp, int hunger,
+		bool singleplayer, bool gameplay_active)
+{
+	if (jnienv == nullptr || activity == nullptr || activityClass == nullptr)
+		return;
+
+	jmethodID method = jnienv->GetMethodID(
+			activityClass, "updateRewardOverlayState", "(IIIZZ)V");
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		return;
+	}
+	if (method == nullptr)
+		return;
+
+	jnienv->CallVoidMethod(activity, method, static_cast<jint>(hp),
+			static_cast<jint>(max_hp), static_cast<jint>(hunger),
+			static_cast<jboolean>(singleplayer),
+			static_cast<jboolean>(gameplay_active));
+	if (jnienv->ExceptionCheck())
+		jnienv->ExceptionClear();
+}
+
+int consumeRewardOverlayRequest()
+{
+	return g_reward_overlay_request.exchange(0);
+}
+
+int consumeGameplayOverlayAction()
+{
+	return g_gameplay_overlay_action.exchange(0);
+}
+
+int consumeRewardedAdResult()
+{
+	return g_rewarded_ad_result.exchange(0);
+}
+
+void showRewardedAd(int reward_type)
+{
+	if (jnienv == nullptr || activity == nullptr || activityClass == nullptr)
+		return;
+
+	jmethodID method = jnienv->GetMethodID(activityClass, "showRewardedAd", "(I)V");
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		return;
+	}
+	if (method == nullptr)
+		return;
+
+	jnienv->CallVoidMethod(activity, method, static_cast<jint>(reward_type));
+	if (jnienv->ExceptionCheck())
+		jnienv->ExceptionClear();
+}
+
+static void notifyRewardState(const char *method_name, int reward_type)
+{
+	if (jnienv == nullptr || activity == nullptr || activityClass == nullptr)
+		return;
+
+	jmethodID method = jnienv->GetMethodID(activityClass, method_name, "(I)V");
+	if (jnienv->ExceptionCheck()) {
+		jnienv->ExceptionClear();
+		return;
+	}
+	if (method == nullptr)
+		return;
+
+	jnienv->CallVoidMethod(activity, method, static_cast<jint>(reward_type));
+	if (jnienv->ExceptionCheck())
+		jnienv->ExceptionClear();
+}
+
+void notifyRewardGranted(int reward_type)
+{
+	notifyRewardState("notifyRewardGranted", reward_type);
+}
+
+void notifyRewardRejected(int reward_type)
+{
+	notifyRewardState("notifyRewardRejected", reward_type);
+}
+
 void showNativePurchaseDialog(const std::string &source)
 {
 	if (jnienv == nullptr || activity == nullptr || activityClass == nullptr) {
 		errorstream << "[PurchasePrompt JNI] showNativePurchaseDialog() - JNI not initialized" << std::endl;
 		return;
 	}
-	
+
 	infostream << "[PurchasePrompt JNI] showNativePurchaseDialog(source=" << source << ")" << std::endl;
 	
 	jmethodID showMethod = jnienv->GetMethodID(activityClass, "showNativePurchaseDialog", "(Ljava/lang/String;)V");
@@ -637,75 +758,6 @@ void showNativePurchaseDialog(const std::string &source)
 	}
 	jnienv->DeleteLocalRef(jSource);
 	infostream << "[PurchasePrompt JNI] showNativePurchaseDialog called" << std::endl;
-}
-
-void showUnclosablePurchaseDialog()
-{
-	if (jnienv == nullptr || activity == nullptr || activityClass == nullptr) {
-		errorstream << "[PurchasePrompt JNI] showUnclosablePurchaseDialog() - JNI not initialized" << std::endl;
-		return;
-	}
-	
-	infostream << "[PurchasePrompt JNI] showUnclosablePurchaseDialog()" << std::endl;
-	
-	jmethodID showMethod = jnienv->GetMethodID(activityClass, "showUnclosablePurchaseDialog", "()V");
-	if (jnienv->ExceptionCheck()) {
-		jnienv->ExceptionClear();
-		errorstream << "[PurchasePrompt JNI] Exception getting showUnclosablePurchaseDialog method" << std::endl;
-		return;
-	}
-	if (showMethod == nullptr) {
-		errorstream << "[PurchasePrompt JNI] showUnclosablePurchaseDialog method not found" << std::endl;
-		return;
-	}
-	
-	jnienv->CallVoidMethod(activity, showMethod);
-	if (jnienv->ExceptionCheck()) {
-		jnienv->ExceptionClear();
-		errorstream << "[PurchasePrompt JNI] Exception in showUnclosablePurchaseDialog" << std::endl;
-	}
-}
-
-// ==================== Trial Timer ====================
-
-int getTrialElapsedSeconds()
-{
-	if (jnienv == nullptr || activity == nullptr || activityClass == nullptr)
-		return 0;
-	
-	jmethodID method = jnienv->GetMethodID(activityClass, "getTrialElapsedSeconds", "()I");
-	if (jnienv->ExceptionCheck()) {
-		jnienv->ExceptionClear();
-		return 0;
-	}
-	if (method == nullptr)
-		return 0;
-	
-	int result = jnienv->CallIntMethod(activity, method);
-	if (jnienv->ExceptionCheck()) {
-		jnienv->ExceptionClear();
-		return 0;
-	}
-	return result;
-}
-
-void saveTrialElapsedSeconds(int seconds)
-{
-	if (jnienv == nullptr || activity == nullptr || activityClass == nullptr)
-		return;
-	
-	jmethodID method = jnienv->GetMethodID(activityClass, "saveTrialElapsedSeconds", "(I)V");
-	if (jnienv->ExceptionCheck()) {
-		jnienv->ExceptionClear();
-		return;
-	}
-	if (method == nullptr)
-		return;
-	
-	jnienv->CallVoidMethod(activity, method, (jint)seconds);
-	if (jnienv->ExceptionCheck()) {
-		jnienv->ExceptionClear();
-	}
 }
 
 // ==================== RuStore Pay SDK (commented out - replaced by YooKassa) ====================

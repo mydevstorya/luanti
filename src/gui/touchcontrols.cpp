@@ -272,10 +272,17 @@ void TouchControls::applyLayout(const ButtonLayout &layout)
 			// Chat is shown by default, so chat_hide_btn.png is shown first.
 			addToggleButton(m_buttons, id, "chat_hide_btn.png",
 					"chat_show_btn.png", rect, true);
-		else if (id == overflow_id)
+		else if (id == overflow_id) {
+#ifdef __ANDROID__
+			// VocoCraft supplies a compact native overlay button which does not
+			// collide with rewarded controls. The overflow panel itself remains
+			// available through TouchControls::toggleOverflowMenu().
+			m_overflow_btn.reset();
+#else
 			m_overflow_btn = grab_gui_element<IGUIImage>(
 					makeButtonDirect(id, rect, true));
-		else
+#endif
+		} else
 			addButton(m_buttons, id, button_image_names[id], rect, true);
 	}
 
@@ -468,7 +475,7 @@ void TouchControls::translateEvent(const SEvent &event)
 
 		// handle overflow menu
 		if (!m_overflow_open) {
-			if (element == m_overflow_btn.get())  {
+			if (m_overflow_btn && element == m_overflow_btn.get())  {
 				toggleOverflowMenu();
 				return;
 			}
@@ -699,7 +706,8 @@ void TouchControls::updateVisibility()
 	bool regular_visible = m_visible && !m_overflow_open;
 	for (auto &button : m_buttons)
 		button.gui_button->setVisible(regular_visible);
-	m_overflow_btn->setVisible(regular_visible);
+	if (m_overflow_btn)
+		m_overflow_btn->setVisible(regular_visible);
 
 	m_joystick_btn_off->setVisible(regular_visible && !m_has_joystick_id);
 	m_joystick_btn_bg->setVisible(regular_visible && m_has_joystick_id);

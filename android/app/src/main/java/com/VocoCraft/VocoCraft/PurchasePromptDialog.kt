@@ -54,7 +54,6 @@ object PurchasePromptDialog {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var currentSource: String = "after_interstitial"
     private var countdownRunnable: Runnable? = null
-    private var isUnclosable: Boolean = false
 
     /**
      * Show purchase prompt dialog.
@@ -77,37 +76,9 @@ object PurchasePromptDialog {
                     Log.w(TAG, "Activity not available, skipping prompt")
                     return@post
                 }
-                isUnclosable = false
                 showDialog(activity)
             } catch (e: Exception) {
                 Log.e(TAG, "Error showing purchase prompt: ${e.message}")
-            }
-        }
-    }
-
-    /**
-     * Show UNCLOSABLE purchase dialog (trial expired).
-     * No close button, no "not now" — user must purchase to continue.
-     */
-    @JvmStatic
-    fun showUnclosable(activity: Activity) {
-        if (YooKassaPay.hasPurchase()) {
-            Log.d(TAG, "User already purchased, skipping unclosable prompt")
-            return
-        }
-
-        currentSource = "trial_expired"
-
-        mainHandler.post {
-            try {
-                if (activity.isFinishing || activity.isDestroyed) {
-                    Log.w(TAG, "Activity not available, skipping prompt")
-                    return@post
-                }
-                isUnclosable = true
-                showDialog(activity)
-            } catch (e: Exception) {
-                Log.e(TAG, "Error showing unclosable purchase prompt: ${e.message}")
             }
         }
     }
@@ -184,7 +155,6 @@ object PurchasePromptDialog {
 
     private fun buildDialogLayout(activity: Activity, dialog: Dialog): View {
         val d = activity.resources.displayMetrics.density
-        val unclosable = isUnclosable
 
         // ── Color palette ──
         val bgDark       = Color.parseColor("#0f0f23")
@@ -257,38 +227,33 @@ object PurchasePromptDialog {
         }
         headerRow.addView(titleText)
 
-        // Close button (top-right corner) — hidden when unclosable
-        if (!unclosable) {
-            val closeBtnBg = GradientDrawable().apply {
-                setColor(Color.parseColor("#2a2a4a"))
-                cornerRadius = 20 * d
-            }
-
-            val closeBtn = TextView(activity).apply {
-                text = "✕"
-                setTextColor(Color.parseColor("#9999BB"))
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
-                setTypeface(null, Typeface.BOLD)
-                gravity = Gravity.CENTER
-                background = closeBtnBg
-                val size = (32 * d).toInt()
-                layoutParams = FrameLayout.LayoutParams(size, size).apply {
-                    gravity = Gravity.END or Gravity.TOP
-                }
-                setOnClickListener { dialog.dismiss() }
-            }
-            headerRow.addView(closeBtn)
+        // Close button (top-right corner)
+        val closeBtnBg = GradientDrawable().apply {
+            setColor(Color.parseColor("#2a2a4a"))
+            cornerRadius = 20 * d
         }
+
+        val closeBtn = TextView(activity).apply {
+            text = "✕"
+            setTextColor(Color.parseColor("#9999BB"))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+            setTypeface(null, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            background = closeBtnBg
+            val size = (32 * d).toInt()
+            layoutParams = FrameLayout.LayoutParams(size, size).apply {
+                gravity = Gravity.END or Gravity.TOP
+            }
+            setOnClickListener { dialog.dismiss() }
+        }
+        headerRow.addView(closeBtn)
 
         innerColumn.addView(headerRow)
 
         // Subtitle
         val subtitleText = TextView(activity).apply {
-            text = if (unclosable)
-                "Бесплатное время закончилось.\nОплатите, чтобы продолжить играть"
-            else
-                "Разблокируй лучший игровой опыт"
-            setTextColor(if (unclosable) Color.parseColor("#FF8A80") else textSoft)
+            text = "Разблокируй лучший игровой опыт"
+            setTextColor(textSoft)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
             gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(
@@ -546,9 +511,7 @@ object PurchasePromptDialog {
                 Log.d(TAG, "Buy button clicked")
                 sendPurchaseWindowAnalytics(activity, "buy_clicked")
                 startPurchase(activity)
-                if (!unclosable) {
-                    dialog.dismiss()
-                }
+                dialog.dismiss()
             }
         }
         buyButtonFrame.addView(buyButton)
@@ -579,24 +542,6 @@ object PurchasePromptDialog {
         animator.start()
 
         innerColumn.addView(buyButtonFrame)
-
-        // ═══════════════════════════════════════════
-        //  Unclosable mode: reassuring message
-        // ═══════════════════════════════════════════
-        if (unclosable) {
-            // In unclosable mode, show a reassuring message instead
-            val keepWorldText = TextView(activity).apply {
-                text = "\uD83C\uDFE0 Твой мир и постройки сохранены и ждут тебя!"
-                setTextColor(Color.parseColor("#69F0AE"))
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
-                gravity = Gravity.CENTER
-                layoutParams = LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-                ).apply { topMargin = (14 * d).toInt() }
-            }
-            innerColumn.addView(keepWorldText)
-        }
 
         scroll.addView(innerColumn)
         root.addView(scroll)
@@ -711,7 +656,6 @@ object PurchasePromptDialog {
                 put("offer_type", offerType)
                 put("price", price)
                 put("currency", currency)
-                put("is_unclosable", isUnclosable)
             }
 
             Analytics.sendEventWithParams("purchase_window", params.toString())

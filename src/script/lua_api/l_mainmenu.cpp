@@ -32,7 +32,6 @@
 
 #ifdef __ANDROID__
 #include "porting_android.h"
-#include "client/trial_timer.h"
 #endif
 
 #include <cassert>
@@ -1459,18 +1458,6 @@ int ModApiMainMenu::l_show_native_purchase_dialog(lua_State *L)
 	return 1;
 }
 
-int ModApiMainMenu::l_get_trial_remaining_seconds(lua_State *L)
-{
-#ifdef __ANDROID__
-	int remaining = TrialTimer::getInstance().getRemainingSeconds();
-	lua_pushinteger(L, remaining);
-#else
-	// PC = unlimited
-	lua_pushinteger(L, 9999);
-#endif
-	return 1;
-}
-
 /******************************************************************************/
 // RuStore Pay SDK functions (commented out - replaced by YooKassa)
 /******************************************************************************/
@@ -1776,7 +1763,6 @@ void ModApiMainMenu::Initialize(lua_State *L, int top)
 	API_FCT(yookassa_start_confirmation);
 	API_FCT(check_activity_resumed);
 	API_FCT(show_native_purchase_dialog);
-	API_FCT(get_trial_remaining_seconds);
 
 	lua_pushboolean(L, g_first_run);
 	lua_setfield(L, top, "is_first_run");

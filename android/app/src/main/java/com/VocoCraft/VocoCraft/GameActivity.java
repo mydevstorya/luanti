@@ -91,6 +91,7 @@ public class GameActivity extends SDLActivity {
 			if (mLayout != null) {
 				InternetCheckService.init(this, mLayout);
 				InternetCheckService.start();
+				RewardOverlayManager.init(this, mLayout);
 				Log.d(TAG, "InternetCheckService initialized and started");
 			} else {
 				Log.w(TAG, "Cannot init InternetCheckService: mLayout is null");
@@ -206,6 +207,10 @@ public class GameActivity extends SDLActivity {
 
 	private native void saveSettings();
 	private native void nativeOnActivityResumed();
+	private native void onGameplayOverlayActionNative(int action);
+	private native void onRewardOverlayClickedNative(int rewardType);
+	private native void onRewardedAdCompletedNative(int rewardType);
+	private native void onRewardedAdFailedNative(int rewardType);
 	
 	// Called from RuStorePay when purchase completes - triggers UI refresh
 	public native void nativeOnPurchaseComplete();
@@ -531,67 +536,99 @@ public class GameActivity extends SDLActivity {
 	}
 	
 	/**
-	 * Show UNCLOSABLE purchase dialog (trial expired).
-	 * No close button, no "not now" — user must purchase to continue.
-	 */
-	public void showUnclosablePurchaseDialog() {
-		Log.d(TAG, "showUnclosablePurchaseDialog() called from native (trial expired)");
-		PurchasePromptDialog.showUnclosable(this);
-	}
-	
-	/**
-	 * Get trial elapsed seconds from SharedPreferences backup.
-	 * Called from native code for trial timer persistence.
-	 */
-	public int getTrialElapsedSeconds() {
-		try {
-			android.content.SharedPreferences prefs = getSharedPreferences("vococraft_trial", Context.MODE_PRIVATE);
-			return prefs.getInt("elapsed_seconds", 0);
-		} catch (Exception e) {
-			Log.e(TAG, "Error getting trial elapsed seconds: " + e.getMessage());
-			return 0;
-		}
-	}
-	
-	/**
-	 * Save trial elapsed seconds to SharedPreferences backup.
-	 * Called from native code for trial timer persistence.
-	 */
-	public void saveTrialElapsedSeconds(int seconds) {
-		try {
-			android.content.SharedPreferences prefs = getSharedPreferences("vococraft_trial", Context.MODE_PRIVATE);
-			prefs.edit().putInt("elapsed_seconds", seconds).apply();
-		} catch (Exception e) {
-			Log.e(TAG, "Error saving trial elapsed seconds: " + e.getMessage());
-		}
-	}
-	
-	/**
 	 * Try to show interstitial ad.
 	 * @return true if ad will be shown, false if no ad available
 	 */
 	public boolean tryShowInterstitial() {
 		Log.d(TAG, "tryShowInterstitial() called from native");
-		return YandexAds.tryShowInterstitial(this, new YandexAds.InterstitialCallback() {
-			@Override
-			public void onInterstitialDismissed() {
-				Log.d(TAG, "Interstitial dismissed, notifying native");
-				onInterstitialDismissedNative();
-				// Show purchase prompt after ad dismissal
-				PurchasePromptDialog.show(GameActivity.this);
-			}
-			
-			@Override
-			public void onInterstitialFailed() {
-				Log.d(TAG, "Interstitial failed, notifying native");
-				onInterstitialFailedNative();
-			}
-		});
+		final boolean adWasReady = YandexAds.isInterstitialReady();
+		runOnUiThread(() -> YandexAds.tryShowInterstitial(
+				GameActivity.this, new YandexAds.InterstitialCallback() {
+					@Override
+					public void onInterstitialDismissed() {
+						Log.d(TAG, "Interstitial dismissed, notifying native");
+						onInterstitialDismissedNative();
+						// Keep the existing optional purchase offer after an ad.
+						PurchasePromptDialog.show(GameActivity.this);
+					}
+
+					@Override
+					public void onInterstitialFailed() {
+						Log.d(TAG, "Interstitial failed, notifying native");
+						onInterstitialFailedNative();
+					}
+				}));
+		return adWasReady;
 	}
 	
 	// Native callbacks for interstitial events
 	private native void onInterstitialDismissedNative();
 	private native void onInterstitialFailedNative();
+
+	/**
+	 * Update the optional health/food rewarded controls over the SDL surface.
+	 * Called from the native game loop.
+	 */
+	public void updateRewardOverlayState(int hp, int maxHp, int hunger,
+			boolean singleplayer, boolean gameplayActive) {
+		if (mLayout != null) {
+			RewardOverlayManager.init(this, mLayout);
+		}
+		RewardOverlayManager.updateState(
+				hp, maxHp, hunger, singleplayer, gameplayActive);
+	}
+
+	/**
+	 * Called by RewardOverlayManager after an explicit player click.
+	 * Native code opens the pause menu before asking Java to show the ad.
+	 */
+	public void onRewardOverlayClicked(int rewardType) {
+		Log.d(TAG, "Reward overlay clicked: " + rewardType);
+		onRewardOverlayClickedNative(rewardType);
+	}
+
+	/**
+	 * Route the native overlay menu/inventory controls into the game loop.
+	 */
+	public void onGameplayOverlayAction(int action) {
+		Log.d(TAG, "Gameplay overlay action: " + action);
+		onGameplayOverlayActionNative(action);
+	}
+
+	/**
+	 * Show an opt-in rewarded ad. Unlike forced ads, this remains available
+	 * to Premium users.
+	 */
+	public void showRewardedAd(int rewardType) {
+		runOnUiThread(() -> YandexAds.tryShowRewarded(
+				GameActivity.this,
+				rewardType,
+				new YandexAds.RewardedCallback() {
+					@Override
+					public void onRewardedClosed(boolean earned) {
+						RewardOverlayManager.onRewardFlowFinished(rewardType, earned);
+						if (earned) {
+							onRewardedAdCompletedNative(rewardType);
+						} else {
+							onRewardedAdFailedNative(rewardType);
+						}
+					}
+
+					@Override
+					public void onRewardedFailed() {
+						RewardOverlayManager.onRewardFlowFinished(rewardType, false);
+						onRewardedAdFailedNative(rewardType);
+					}
+				}));
+	}
+
+	public void notifyRewardGranted(int rewardType) {
+		RewardOverlayManager.onNativeRewardGranted(rewardType);
+	}
+
+	public void notifyRewardRejected(int rewardType) {
+		RewardOverlayManager.onNativeRewardRejected(rewardType);
+	}
 	
 	@Override
 	protected void onDestroy() {
@@ -602,6 +639,12 @@ public class GameActivity extends SDLActivity {
 			InternetCheckService.destroy();
 		} catch (Exception e) {
 			Log.e(TAG, "Error destroying InternetCheckService: " + e.getMessage());
+		}
+
+		try {
+			RewardOverlayManager.destroy();
+		} catch (Exception e) {
+			Log.e(TAG, "Error destroying RewardOverlayManager: " + e.getMessage());
 		}
 		
 		// Dismiss purchase prompt dialog if showing

@@ -120,6 +120,9 @@ public:
 	bool isStatusTextOverridden() { return m_overflow_open; }
 	IGUIStaticText *getStatusText() { return m_status_text.get(); }
 
+	void toggleOverflowMenu();
+	bool isOverflowMenuOpen() const { return m_overflow_open; }
+
 private:
 	IrrlichtDevice *m_device = nullptr;
 	IGUIEnvironment *m_guienv = nullptr;
@@ -207,7 +210,6 @@ private:
 	bool buttonsHandleRelease(std::vector<button_info> &buttons, size_t pointer_id);
 	bool buttonsStep(std::vector<button_info> &buttons, float dtime);
 
-	void toggleOverflowMenu();
 	void updateVisibility();
 	void releaseAll();
 

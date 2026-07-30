@@ -4,6 +4,7 @@
 
 #include "game_internal.h"
 
+#include <chrono>
 #include <cmath>
 #include <csignal>
 #include "client/gameui.h"
@@ -49,6 +50,7 @@
 #include "version.h"
 #include "script/scripting_client.h"
 #include "hud.h"
+#include "hud_element.h"
 #include <AnimatedMeshSceneNode.h>
 #include <ICameraSceneNode.h>
 #include "util/tracy_wrapper.h"
@@ -57,7 +59,6 @@
 
 #ifdef __ANDROID__
 #include "porting_android.h"
-#include "client/trial_timer.h"
 #endif
 
 #if USE_SOUND
@@ -65,6 +66,44 @@
 #endif
 
 typedef s32 SamplerLayer_t;
+
+#ifdef __ANDROID__
+enum VocoCraftRewardType {
+	VOCOCRAFT_REWARD_HEALTH = 1,
+	VOCOCRAFT_REWARD_FOOD = 2,
+};
+
+enum VocoCraftOverlayAction {
+	VOCOCRAFT_OVERLAY_MENU = 10,
+	VOCOCRAFT_OVERLAY_INVENTORY = 11,
+};
+
+static constexpr int VOCOCRAFT_LOW_RESOURCE_THRESHOLD = 8;
+
+static int getVocoCraftHunger(const LocalPlayer *player)
+{
+	if (!player)
+		return -1;
+
+	for (const HudElement *element : player->getHudElements()) {
+		if (!element || element->type != HUD_ELEM_STATBAR)
+			continue;
+		if (element->text == "hbhunger_icon.png" ||
+				element->text == "mcl_hunger_icon_foodpoison.png")
+			return static_cast<int>(element->number);
+	}
+	return -1;
+}
+
+static int getPlayerMaxHp(const LocalPlayer *player)
+{
+	if (!player)
+		return PLAYER_MAX_HP_DEFAULT;
+	return player->getCAO() ?
+			player->getCAO()->getProperties().hp_max :
+			PLAYER_MAX_HP_DEFAULT;
+}
+#endif
 
 
 class GameGlobalShaderUniformSetter : public IShaderUniformSetter
@@ -523,12 +562,7 @@ void Game::run()
 #ifdef __ANDROID__
 	porting::setPlayingNowNotification(true);
 	porting::showBanner();
-	// Initialize trial timer with user data path
-	TrialTimer::getInstance().init(porting::path_user);
-	// If trial already expired from a previous session, block immediately
-	if (TrialTimer::getInstance().isExpired()) {
-		porting::showUnclosablePurchaseDialog();
-	}
+	auto reward_overlay_next_update = std::chrono::steady_clock::now();
 #endif
 
 	auto framemarker = FrameMarker("Game::run()-frame").started();
@@ -609,18 +643,80 @@ void Game::run()
 
 		step(dtime);
 
+		processClientEvents(&cam_view_target);
 #ifdef __ANDROID__
-		// Tick trial timer (only counts unpaused gameplay time)
-		if (!m_is_paused) {
-			bool trial_just_expired = TrialTimer::getInstance().tick(dtime);
-			if (trial_just_expired) {
-				// Trial expired — show unclosable purchase dialog
-				porting::showUnclosablePurchaseDialog();
+		LocalPlayer *reward_player = client->getEnv().getLocalPlayer();
+		const int reward_hp = reward_player ? static_cast<int>(reward_player->hp) : 0;
+		const int reward_max_hp = getPlayerMaxHp(reward_player);
+		const int reward_hunger = getVocoCraftHunger(reward_player);
+
+		const int overlay_action = porting::consumeGameplayOverlayAction();
+		if (overlay_action == VOCOCRAFT_OVERLAY_MENU) {
+			if (!isMenuActive() && g_touchcontrols)
+				g_touchcontrols->toggleOverflowMenu();
+		} else if (overlay_action == VOCOCRAFT_OVERLAY_INVENTORY) {
+			if (!isMenuActive()) {
+				if (g_touchcontrols && g_touchcontrols->isOverflowMenuOpen())
+					g_touchcontrols->toggleOverflowMenu();
+				m_game_formspec.showPlayerInventory(nullptr);
 			}
 		}
-#endif
 
-		processClientEvents(&cam_view_target);
+		const int reward_request = porting::consumeRewardOverlayRequest();
+		if (reward_request != 0) {
+			const bool health_eligible = reward_request == VOCOCRAFT_REWARD_HEALTH &&
+					reward_hp > 0 &&
+					reward_hp < VOCOCRAFT_LOW_RESOURCE_THRESHOLD &&
+					reward_hp < reward_max_hp;
+			const bool food_eligible = reward_request == VOCOCRAFT_REWARD_FOOD &&
+					reward_hunger >= 0 &&
+					reward_hunger < VOCOCRAFT_LOW_RESOURCE_THRESHOLD;
+			if (simple_singleplayer_mode && (health_eligible || food_eligible)) {
+				if (!isMenuActive())
+					m_game_formspec.showPauseMenu();
+				porting::showRewardedAd(reward_request);
+			} else {
+				porting::notifyRewardRejected(reward_request);
+			}
+		}
+
+		const int rewarded_ad_result = porting::consumeRewardedAdResult();
+		if (rewarded_ad_result != 0) {
+			// Fullscreen ads may consume the Android back press that closes them.
+			// Re-open the pause menu after dismissal so the player always returns
+			// to a safe, paused state before continuing manually.
+			if (!isMenuActive())
+				m_game_formspec.showPauseMenu();
+		}
+		if (rewarded_ad_result > 0) {
+			if (simple_singleplayer_mode &&
+					(rewarded_ad_result == VOCOCRAFT_REWARD_HEALTH ||
+					 rewarded_ad_result == VOCOCRAFT_REWARD_FOOD)) {
+				const wchar_t *reward_command =
+						rewarded_ad_result == VOCOCRAFT_REWARD_HEALTH ?
+						L"/__vococraft_reward health" :
+						L"/__vococraft_reward food";
+				client->sendChatMessage(reward_command);
+				porting::notifyRewardGranted(rewarded_ad_result);
+			} else {
+				porting::notifyRewardRejected(rewarded_ad_result);
+			}
+		} else if (rewarded_ad_result < 0) {
+			porting::notifyRewardRejected(-rewarded_ad_result);
+		}
+
+		const auto reward_overlay_now = std::chrono::steady_clock::now();
+		if (reward_overlay_now >= reward_overlay_next_update) {
+			const bool reward_gameplay_active =
+					reward_player && reward_hp > 0 && !isMenuActive() &&
+					(!g_touchcontrols || !g_touchcontrols->isOverflowMenuOpen());
+			porting::updateRewardOverlayState(reward_hp, reward_max_hp,
+					reward_hunger, simple_singleplayer_mode,
+					reward_gameplay_active);
+			reward_overlay_next_update =
+					reward_overlay_now + std::chrono::milliseconds(500);
+		}
+#endif
 		updateDebugState();
 		// Update camera here so it is in-sync with CAO position
 		updateCamera(dtime);
@@ -637,9 +733,9 @@ void Game::run()
 	framemarker.end();
 
 #ifdef __ANDROID__
+	porting::updateRewardOverlayState(0, PLAYER_MAX_HP_DEFAULT, -1,
+			false, false);
 	porting::setPlayingNowNotification(false);
-	// Save trial timer on game exit
-	TrialTimer::getInstance().save();
 #endif
 
 	RenderingEngine::autosaveScreensizeAndCo(initial_screen_size, initial_window_maximized);
