@@ -37,7 +37,6 @@ RUN cd prometheus-cpp && \
 
 FROM dev AS builder
 
-COPY .git /usr/src/luanti/.git
 COPY CMakeLists.txt /usr/src/luanti/CMakeLists.txt
 COPY README.md /usr/src/luanti/README.md
 COPY minetest.conf.example /usr/src/luanti/minetest.conf.example
