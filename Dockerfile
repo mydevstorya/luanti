@@ -74,10 +74,10 @@ RUN apk add --no-cache curl gmp libstdc++ libgcc libpq jsoncpp zstd-libs \
 
 WORKDIR /var/lib/minetest
 
-COPY --from=builder /usr/local/share/luanti /usr/local/share/luanti
+COPY --from=builder /usr/local/share/vococraft /usr/local/share/vococraft
 COPY --from=builder /usr/local/bin/luantiserver /usr/local/bin/luantiserver
-COPY --from=builder /usr/local/share/doc/luanti/minetest.conf.example /etc/minetest/minetest.conf
-COPY --from=builder /usr/src/luanti/games/vococraft /usr/local/share/luanti/games/vococraft
+COPY --from=builder /usr/local/share/doc/vococraft/minetest.conf.example /etc/minetest/minetest.conf
+COPY --from=builder /usr/src/luanti/games/vococraft /usr/local/share/vococraft/games/vococraft
 COPY --from=builder /usr/local/lib/libspatialindex* /usr/local/lib/
 COPY --from=builder /usr/local/lib/libluajit* /usr/local/lib/
 USER minetest:minetest
