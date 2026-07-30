@@ -51,6 +51,7 @@ dofile(menupath .. DIR_DELIM .. "content" .. DIR_DELIM .. "init.lua")
 
 dofile(menupath .. DIR_DELIM .. "dlg_config_world.lua")
 dofile(basepath .. "common" .. DIR_DELIM .. "settings" .. DIR_DELIM .. "init.lua")
+dofile(menupath .. DIR_DELIM .. "dlg_confirm_exit.lua")
 
 -- === VOCOCRAFT: Load mobile or standard dialogs ===
 if VOCOCRAFT_MOBILE_UI then
@@ -83,16 +84,33 @@ else
 end
 -- === END VOCOCRAFT ===
 
---------------------------------------------------------------------------------
 local function main_event_handler(tabview, event)
 	if event == "MenuQuit" then
-		core.close()
+		local show_dialog = core.settings:get_bool("enable_esc_dialog")
+		if not ui.childlist["mainmenu_quit_confirm"] and show_dialog then
+			tabview:hide()
+			local dlg = create_exit_dialog()
+			dlg:set_parent(tabview)
+			dlg:show()
+		else
+			core.close()
+		end
+		return true
 	end
 	return true
 end
 
---------------------------------------------------------------------------------
 local function init_globals()
+	-- Permanent warning if on an unoptimized debug build
+	if core.is_debug_build() then
+		local set_topleft_text = core.set_topleft_text
+		core.set_topleft_text = function(s)
+			s = (s or "") .. "\n"
+			s = s .. core.colorize("#f22", core.gettext("Debug build, expect worse performance"))
+			set_topleft_text(s)
+		end
+	end
+
 	-- === VOCOCRAFT: Hide banner on mobile ===
 	if VOCOCRAFT_MOBILE_UI and core.hide_banner then
 		core.hide_banner()
@@ -118,7 +136,17 @@ local function init_globals()
 		end,
 		-- Filter function
 		function(element, gameid)
-			return element.gameid == gameid
+			-- Keep in sync with the logic in pkgmgr.find_by_gameid
+			local el_gameid = pkgmgr.normalize_game_id(element.gameid)
+			if el_gameid == gameid then
+				return true
+			end
+			local game = pkgmgr.find_by_gameid(el_gameid)
+			if (not game or game.id ~= el_gameid)
+					and pkgmgr.find_by_gameid(gameid).aliases[el_gameid] then
+				return true
+			end
+			return false
 		end
 	)
 

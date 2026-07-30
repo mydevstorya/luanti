@@ -78,31 +78,17 @@ local function init_data(data)
 				return true
 			end
 		end,
-		function(element, criteria)
-			if criteria.hide_game and
-					element.is_game_content then
-				return false
-			end
-
-			if criteria.hide_modpackcontents and
-					element.modpack ~= nil then
-				return false
-			end
-			return true
-		end,
+		nil,
 		{
 			worldpath = data.worldspec.path,
 			gameid = data.worldspec.gameid
-		})
+		}
+	)
 
 	if data.selected_mod > data.list:size() then
 		data.selected_mod = 0
 	end
 
-	data.list:set_filtercriteria({
-		hide_game = data.hide_gamemods,
-		hide_modpackcontents = data.hide_modpackcontents
-	})
 	-- Sorting is already done by pgkmgr.get_mods
 end
 
@@ -187,17 +173,23 @@ local function get_formspec(data)
 				"label[0,0.7;" .. fgettext("Modpack:") .. "]" ..
 				"label[1.5,0.7;" .. core.formspec_escape(mod.name) .. "]" ..
 				"textarea[0.25,1.25;5.25,5.5;;" .. info .. ";]"
+		elseif mod.type == "worldmods" then
+			retval = retval ..
+				"textarea[0.25,0.7;5.75,7.2;;" ..
+				fgettext("Mods located inside the world folder.") .. ";]"
 		else
 			-- Show mod dependencies
 			local hard_deps, soft_deps = pkgmgr.get_dependencies(mod.path)
 
 			-- Add error messages to dep lists
-			if mod.enabled then
+			if mod.enabled or mod.always_on then
 				for i, dep_name in ipairs(hard_deps) do
 					local dep = enabled_mods_by_name[dep_name]
 					if not dep then
+						-- TRANSLATORS: Displayed when a mod dependency is unsatisfied
 						hard_deps[i] = mt_color_red .. dep_name .. " " .. fgettext("(Unsatisfied)")
 					elseif with_error[dep.virtual_path] then
+						-- TRANSLATORS: Message in the mod list when a mod is enabled with error
 						hard_deps[i] = mt_color_orange .. dep_name .. " " .. fgettext("(Enabled, has error)")
 					else
 						hard_deps[i] = mt_color_green .. dep_name
@@ -310,7 +302,8 @@ local function get_formspec(data)
 		if selected_external_mod then
 			local is_enabled = selected_external_mod.enabled
 			if selected_external_mod.is_modpack then
-				is_enabled = pkgmgr.is_modpack_entirely_enabled(data, selected_external_mod.name)
+				is_enabled = pkgmgr.is_modpack_entirely_enabled(
+					data.list:get_raw_list(), selected_external_mod)
 			end
 			local cb_img = is_enabled
 				and core.formspec_escape(defaulttexturedir .. "checkbox_64.png")
@@ -343,7 +336,8 @@ local function handle_buttons(this, fields)
 			local mod = external_mods[filtered_selected]
 			if mod then
 				if mod.is_modpack then
-					local entirely_enabled = pkgmgr.is_modpack_entirely_enabled(this.data, mod.name)
+					local entirely_enabled = pkgmgr.is_modpack_entirely_enabled(
+						this.data.list:get_raw_list(), mod)
 					pkgmgr.enable_mod(this, not entirely_enabled)
 				else
 					pkgmgr.enable_mod(this, not mod.enabled)
@@ -385,8 +379,7 @@ local function handle_buttons(this, fields)
 
 		for i = 1, #rawlist do
 			local mod = rawlist[i]
-			if not mod.is_modpack and
-					not mod.is_game_content then
+			if not mod.is_modpack and not mod.always_on then
 				if modname_valid(mod.name) then
 					if mod.enabled then
 						worldfile:set("load_mod_" .. mod.name, mod.virtual_path)
@@ -442,18 +435,15 @@ local function handle_buttons(this, fields)
 		-- multiple enables.
 
 		local was_enabled = {}
-		for i = 1, #list do
-			if not list[i].is_game_content
-					and not list[i].is_modpack and list[i].enabled then
-				was_enabled[list[i].name] = true
+		for _, mod in ipairs(list) do
+			if not mod.always_on and not mod.is_modpack and mod.enabled then
+				was_enabled[mod.name] = true
 			end
 		end
 
-		for i = 1, #list do
-			if not list[i].is_game_content and not list[i].is_modpack and
-					not was_enabled[list[i].name] then
-				list[i].enabled = true
-				was_enabled[list[i].name] = true
+		for _, mod in ipairs(list) do
+			if not mod.always_on and not mod.is_modpack and not was_enabled[mod.name] then
+				mod.enabled = true
 			end
 		end
 
@@ -464,10 +454,9 @@ local function handle_buttons(this, fields)
 	if fields.btn_disable_all_mods then
 		local list = this.data.list:get_raw_list()
 
-		for i = 1, #list do
-			if not list[i].is_game_content
-					and not list[i].is_modpack then
-				list[i].enabled = false
+		for _, mod in ipairs(list) do
+			if not mod.always_on and not mod.is_modpack then
+				mod.enabled = false
 			end
 		end
 		enabled_all = false

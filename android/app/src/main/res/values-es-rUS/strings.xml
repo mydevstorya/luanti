@@ -8,4 +8,5 @@
     <string name="label">Vococraft</string>
     <string name="notification_channel_description">Notificaciones de Vococraft</string>
     <string name="unzip_notification_title">Cargando Vococraft</string>
+    <string name="game_notification_title">Vococraft se está ejecutando</string>
 </resources>
