@@ -14,7 +14,6 @@ WORKDIR /usr/src/
 
 ADD https://github.com/jupp0r/prometheus-cpp.git?branch=master /usr/src/prometheus-cpp
 ADD https://github.com/libspatialindex/libspatialindex.git?branch=main /usr/src/libspatialindex
-ADD --keep-git-dir https://luajit.org/git/luajit.git?branch=${LUAJIT_VERSION} /usr/src/luajit
 
 RUN cd prometheus-cpp && \
 		cmake -B build \
@@ -31,6 +30,7 @@ RUN cd prometheus-cpp && \
 		cmake --build build --parallel 2 && \
 		cmake --install build && \
 		cd /usr/src/ && \
+	git clone --branch "${LUAJIT_VERSION}" https://luajit.org/git/luajit.git /usr/src/luajit && \
 	cd luajit && \
 		make amalg && make install && \
 	cd /usr/src/
