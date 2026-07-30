@@ -61,8 +61,7 @@ RUN cmake -B build \
 		-DBUILD_UNITTESTS=FALSE -DBUILD_BENCHMARKS=FALSE \
 		-DBUILD_CLIENT=FALSE \
 		-GNinja && \
-	cmake --build build --parallel 2 && \
-	cmake --install build
+	cmake --build build --parallel 2
 
 FROM $DOCKER_IMAGE AS runtime
 
@@ -73,9 +72,9 @@ RUN apk add --no-cache curl gmp libstdc++ libgcc libpq jsoncpp zstd-libs \
 
 WORKDIR /var/lib/minetest
 
-COPY --from=builder /usr/local/share/vococraft /usr/local/share/vococraft
-COPY --from=builder /usr/local/bin/luantiserver /usr/local/bin/luantiserver
-COPY --from=builder /usr/local/share/doc/vococraft/minetest.conf.example /etc/minetest/minetest.conf
+COPY --from=builder /usr/src/luanti/builtin /usr/local/share/vococraft/builtin
+COPY --from=builder /usr/src/luanti/bin/luantiserver /usr/local/bin/luantiserver
+COPY --from=builder /usr/src/luanti/minetest.conf.example /etc/minetest/minetest.conf
 COPY --from=builder /usr/src/luanti/games/vococraft /usr/local/share/vococraft/games/vococraft
 COPY --from=builder /usr/local/lib/libspatialindex* /usr/local/lib/
 COPY --from=builder /usr/local/lib/libluajit* /usr/local/lib/
