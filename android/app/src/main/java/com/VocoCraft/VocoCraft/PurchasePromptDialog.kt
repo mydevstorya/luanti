@@ -58,10 +58,14 @@ object PurchasePromptDialog {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var currentSource: String = "after_interstitial"
     private var countdownRunnable: Runnable? = null
+    private var pendingShowRunnable: Runnable? = null
+    private var priceRefreshRunnable: Runnable? = null
     private var shimmerAnimator: ValueAnimator? = null
 
     private const val SKIN_WIDTH = 1870f
     private const val SKIN_HEIGHT = 841f
+    private const val PRICE_WAIT_INTERVAL_MS = 200L
+    private const val PRICE_WAIT_MAX_ATTEMPTS = 15
 
     /**
      * Show purchase prompt dialog.
@@ -76,18 +80,47 @@ object PurchasePromptDialog {
             return
         }
 
-        currentSource = source
-
         mainHandler.post {
-            try {
-                if (activity.isFinishing || activity.isDestroyed) {
-                    Log.w(TAG, "Activity not available, skipping prompt")
-                    return@post
+            stopPendingShow()
+            currentSource = source
+
+            val runnable = object : Runnable {
+                private var attempts = 0
+
+                override fun run() {
+                    try {
+                        if (activity.isFinishing || activity.isDestroyed ||
+                            YooKassaPay.hasPurchase()) {
+                            pendingShowRunnable = null
+                            return
+                        }
+
+                        val specialWindow = YooKassaPay.isSpecialOfferAvailable()
+                        val specialReady = YooKassaPay.isSpecialOfferPriceFetched()
+                        val regularReady = YooKassaPay.isProductInfoFetched()
+                        val pricingReady = if (specialWindow) {
+                            specialReady || (regularReady && attempts >= PRICE_WAIT_MAX_ATTEMPTS)
+                        } else {
+                            regularReady
+                        }
+
+                        if (pricingReady || attempts >= PRICE_WAIT_MAX_ATTEMPTS) {
+                            pendingShowRunnable = null
+                            showDialog(activity)
+                            return
+                        }
+
+                        attempts++
+                        mainHandler.postDelayed(this, PRICE_WAIT_INTERVAL_MS)
+                    } catch (e: Exception) {
+                        pendingShowRunnable = null
+                        Log.e(TAG, "Error preparing purchase prompt: ${e.message}")
+                    }
                 }
-                showDialog(activity)
-            } catch (e: Exception) {
-                Log.e(TAG, "Error showing purchase prompt: ${e.message}")
             }
+
+            pendingShowRunnable = runnable
+            runnable.run()
         }
     }
 
@@ -95,6 +128,8 @@ object PurchasePromptDialog {
     fun dismiss() {
         mainHandler.post {
             try {
+                stopPendingShow()
+                stopPriceRefresh()
                 stopCountdownTimer()
                 stopVisualAnimations()
                 currentDialog?.dismiss()
@@ -110,12 +145,24 @@ object PurchasePromptDialog {
         countdownRunnable = null
     }
 
+    private fun stopPendingShow() {
+        pendingShowRunnable?.let { mainHandler.removeCallbacks(it) }
+        pendingShowRunnable = null
+    }
+
+    private fun stopPriceRefresh() {
+        priceRefreshRunnable?.let { mainHandler.removeCallbacks(it) }
+        priceRefreshRunnable = null
+    }
+
     private fun stopVisualAnimations() {
         shimmerAnimator?.cancel()
         shimmerAnimator = null
     }
 
     private fun showDialog(activity: Activity) {
+        stopPendingShow()
+        stopPriceRefresh()
         stopCountdownTimer()
         stopVisualAnimations()
         currentDialog?.dismiss()
@@ -137,6 +184,7 @@ object PurchasePromptDialog {
         }
 
         dialog.setOnDismissListener {
+            stopPriceRefresh()
             stopCountdownTimer()
             stopVisualAnimations()
             currentDialog = null
@@ -170,7 +218,8 @@ object PurchasePromptDialog {
         )
         val canvasHeight = (canvasWidth / skinAspect).roundToInt()
         val scale = canvasWidth / SKIN_WIDTH
-        val isSpecialOffer = YooKassaPay.isSpecialOfferAvailable()
+        val isSpecialOffer = YooKassaPay.isSpecialOfferAvailable() &&
+            YooKassaPay.isSpecialOfferPriceFetched()
 
         val root = FrameLayout(activity).apply {
             setBackgroundColor(Color.TRANSPARENT)
@@ -501,6 +550,13 @@ object PurchasePromptDialog {
             982f, 638f, 668f, 156f, 24f,
             "Получить полный доступ"
         ) {
+            if (!isPurchasePriceReady()) {
+                Log.w(TAG, "Buy click ignored while product price is unavailable")
+                priceValue.text = "Загрузка…"
+                YooKassaPay.fetchProductInfo()
+                sendPurchaseWindowAnalytics(activity, "price_not_ready")
+                return@addPressTarget
+            }
             Log.d(TAG, "Buy button clicked")
             sendPurchaseWindowAnalytics(activity, "buy_clicked")
             dismissAnimated {
@@ -522,6 +578,7 @@ object PurchasePromptDialog {
             it.translationY = 8f * scale
         }
         stage.post {
+            startPriceRefresh(priceValue)
             AnimatorSet().apply {
                 playTogether(
                     ObjectAnimator.ofFloat(stage, View.ALPHA, 0f, 1f),
@@ -997,10 +1054,46 @@ object PurchasePromptDialog {
                 if (price.isNotEmpty()) return price
             }
             val price = YooKassaPay.getProductPrice()
-            if (price.isNotEmpty()) price else "249 ₽"
+            if (price.isNotEmpty()) price else "Цена недоступна"
         } catch (e: Exception) {
-            "249 ₽"
+            "Цена недоступна"
         }
+    }
+
+    private fun isPurchasePriceReady(): Boolean {
+        return if (YooKassaPay.isSpecialOfferAvailable() &&
+            YooKassaPay.isSpecialOfferPriceFetched()) {
+            YooKassaPay.getSpecialOfferAmount().isNotEmpty()
+        } else {
+            YooKassaPay.isProductInfoFetched() &&
+                YooKassaPay.getProductAmount().isNotEmpty()
+        }
+    }
+
+    private fun startPriceRefresh(priceView: TextView) {
+        stopPriceRefresh()
+        val runnable = object : Runnable {
+            override fun run() {
+                val dialog = currentDialog
+                if (dialog == null || !dialog.isShowing) {
+                    priceRefreshRunnable = null
+                    return
+                }
+
+                val latestPrice = getFormattedPrice()
+                if (priceView.text.toString() != latestPrice) {
+                    priceView.text = latestPrice
+                }
+
+                if (!isPurchasePriceReady()) {
+                    mainHandler.postDelayed(this, PRICE_WAIT_INTERVAL_MS)
+                } else {
+                    priceRefreshRunnable = null
+                }
+            }
+        }
+        priceRefreshRunnable = runnable
+        runnable.run()
     }
 
     /**
@@ -1017,6 +1110,12 @@ object PurchasePromptDialog {
 
     private fun startPurchase(activity: Activity) {
         try {
+            if (!isPurchasePriceReady()) {
+                Log.w(TAG, "Purchase blocked because product price is unavailable")
+                YooKassaPay.fetchProductInfo()
+                return
+            }
+
             val isSpecial = YooKassaPay.isSpecialOfferAvailable() && YooKassaPay.isSpecialOfferPriceFetched()
             val amount: String
             val currency: String
@@ -1049,7 +1148,8 @@ object PurchasePromptDialog {
      */
     private fun sendPurchaseWindowAnalytics(activity: Activity, action: String) {
         try {
-            val isSpecial = YooKassaPay.isSpecialOfferAvailable()
+            val isSpecial = YooKassaPay.isSpecialOfferAvailable() &&
+                YooKassaPay.isSpecialOfferPriceFetched()
             val offerType = if (isSpecial) "special_offer" else "regular"
             val price = if (isSpecial) {
                 YooKassaPay.getSpecialOfferAmount().ifEmpty { YooKassaPay.getProductAmount() }

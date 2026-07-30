@@ -116,7 +116,7 @@ local function get_fullversion_formspec(data)
 		
 		"label[", padding + 0.4, ",2.4;", 
 			core.colorize(accent_gold, "+ "),
-			core.colorize(text_light, "Играй без рекламы"), "]",
+			core.colorize(text_light, "Играй без принудительной рекламы"), "]",
 		
 		"label[", padding + 0.4, ",2.95;", 
 			core.colorize(accent_gold, "+ "),

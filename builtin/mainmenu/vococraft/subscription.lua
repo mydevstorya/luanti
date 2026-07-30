@@ -362,7 +362,7 @@ function vococraft_subscription.purchase(callback)
 			vococraft_subscription.product_amount,
 			vococraft_subscription.product_currency,
 			"VocoCraft Полная версия",
-			"Разблокировка всех функций без рекламы"
+			"Разблокировка всех функций без принудительной рекламы"
 		)
 		
 		-- Note: Result will be checked in check_purchase_result() or update_purchase_state()

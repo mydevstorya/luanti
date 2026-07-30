@@ -347,12 +347,14 @@ class YooKassaPay private constructor(private val context: Context) {
     private var productPriceFormatted: String? = null
     private var productAmount: String? = null      // Raw amount from backend (e.g. "249")
     private var productCurrency: String? = null    // Currency from backend (e.g. "RUB")
+    @Volatile
     private var productInfoFetched = false
 
     // Special offer product info
     private var specialOfferPriceFormatted: String? = null
     private var specialOfferAmount: String? = null
     private var specialOfferCurrency: String? = null
+    @Volatile
     private var specialOfferFetched = false
     private var firstInstallTime: Long = 0L
     private var launchCount: Int = 0

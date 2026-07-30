@@ -328,7 +328,7 @@ local function get_formspec(tabview, name, tabdata)
 		table.insert(fs, "style[btn_unlock_premium;bgcolor=#9c27b0;border=true;font_size=*1.2;textcolor=#ffffff]")
 		table.insert(fs, "style[btn_unlock_premium:hovered;bgcolor=#ba68c8]")
 		table.insert(fs, "style[btn_unlock_premium:pressed;bgcolor=#7b1fa2]")
-		table.insert(fs, "button[" .. sub_btn_x .. "," .. sub_btn_y .. ";" .. sub_btn_w .. "," .. sub_btn_h .. ";btn_unlock_premium;" .. fgettext("Unlock Premium - play with mods and no ads") .. "]")
+		table.insert(fs, "button[" .. sub_btn_x .. "," .. sub_btn_y .. ";" .. sub_btn_w .. "," .. sub_btn_h .. ";btn_unlock_premium;" .. fgettext("Unlock Premium - play with mods and no forced ads") .. "]")
 	end
 	-- === END VOCOCRAFT ===
 
