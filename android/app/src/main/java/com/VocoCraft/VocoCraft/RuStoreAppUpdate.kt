@@ -58,6 +58,10 @@ object RuStoreAppUpdate {
 
     @JvmStatic
     fun init(hostActivity: Activity) {
+        if (StoreDistribution.isGooglePlayInstall(hostActivity)) {
+            Log.i(TAG, "Disabled for a Google Play installation")
+            return
+        }
         activity = hostActivity
         if (updateManager != null) {
             return
@@ -83,6 +87,9 @@ object RuStoreAppUpdate {
 
     @JvmStatic
     fun onResume(hostActivity: Activity) {
+        if (StoreDistribution.isGooglePlayInstall(hostActivity)) {
+            return
+        }
         activity = hostActivity
         if (updateManager == null) {
             init(hostActivity)

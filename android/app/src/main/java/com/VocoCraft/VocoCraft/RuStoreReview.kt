@@ -51,6 +51,10 @@ class RuStoreReview private constructor(private val context: Context) {
         @JvmStatic
         fun init(activity: Activity) {
             Log.i(TAG, "init() called")
+            if (StoreDistribution.isGooglePlayInstall(activity)) {
+                Log.i(TAG, "Disabled for a Google Play installation")
+                return
+            }
             if (instance == null) {
                 synchronized(this) {
                     if (instance == null) {

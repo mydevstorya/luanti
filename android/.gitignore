@@ -1,6 +1,7 @@
 *.iml
 .externalNativeBuild
 .gradle
+.kotlin
 app/build
 app/release
 app/src/main/assets
