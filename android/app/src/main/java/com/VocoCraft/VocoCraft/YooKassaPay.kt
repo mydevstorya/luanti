@@ -1,5 +1,5 @@
 /*
- * VocoCraft - YooKassa SDK Integration (version 8.3.0)
+ * VocoCraft - YooKassa SDK Integration (version 8.4.0)
  * 
  * Kotlin implementation for one-time purchase management.
  * Called from native C++ code via JNI.

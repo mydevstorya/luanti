@@ -208,7 +208,7 @@ dependencies {
 	implementation("ru.rustore.sdk:appupdate")
 	
 	// YooKassa SDK for payments
-	implementation 'ru.yoomoney.sdk.kassa.payments:yookassa-android-sdk:8.3.0'
+	implementation 'ru.yoomoney.sdk.kassa.payments:yookassa-android-sdk:8.4.0'
 	
 	// OkHttp for backend API calls
 	implementation 'com.squareup.okhttp3:okhttp:4.12.0'
